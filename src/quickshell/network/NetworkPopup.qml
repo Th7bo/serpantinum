@@ -1066,6 +1066,7 @@ Item {
                 }
             }
             if (window.activeMode !== "eth") {
+                nodes.push({ id: "action_manage", name: "Manage", icon: "󰕰", action: "", isInfoNode: true, isActionable: true, cmdStr: "OPEN_MANAGE", parentIndex: -1 });
                 nodes.push({ id: "action_scan", name: I18n.t("network.actions.scan") || "Scan", icon: "󰍉", action: "", isInfoNode: true, isActionable: true, cmdStr: "TOGGLE_VIEW", parentIndex: -1 });
             }
         }
@@ -1218,6 +1219,9 @@ Item {
 
         newNetworks.sort((a, b) => (a && b && a.id && b.id) ? a.id.localeCompare(b.id) : 0);
 
+        // Opens the list-style manager (network/NetworkManage.qml)
+        newNetworks.push({ id: "action_manage", ssid: "Manage", mac: "", name: "Manage", icon: "󰕰", action: "", isInfoNode: false, isActionable: true, cmdStr: "OPEN_MANAGE", parentIndex: -1 });
+
         if (isNowWifiConn && window.activeMode === "wifi") {
             newNetworks.push({ id: "action_settings", ssid: I18n.t("network.status.current_device") || "Current Device", mac: "", name: I18n.t("network.status.current_device") || "Current Device", icon: "󰒓", action: "", isInfoNode: false, isActionable: true, cmdStr: "TOGGLE_VIEW", parentIndex: -1 });
         }
@@ -1357,6 +1361,8 @@ Item {
         }
 
         newDevices.sort((a, b) => (a && b && a.id && b.id) ? a.id.localeCompare(b.id) : 0);
+
+        newDevices.push({ id: "action_manage", ssid: "", mac: "action_manage", name: "Manage", icon: "󰕰", action: "", isInfoNode: false, isActionable: true, cmdStr: "OPEN_MANAGE", parentIndex: -1 });
 
         if (isNowBtConn && window.activeMode === "bt") {
             newDevices.push({ id: "action_settings", ssid: "", mac: "action_settings", name: I18n.t("network.status.current_device") || "Current Device", icon: "󰒓", action: "", isInfoNode: false, isActionable: true, cmdStr: "TOGGLE_VIEW", parentIndex: -1 });

@@ -190,7 +190,7 @@ Item {
 
             property bool isPairedBT: window.activeMode === "bt" && (typeof action !== "undefined" && action === "Connect")
             property bool isTargetWifi: window.activeMode === "wifi" && !window.isWifiConn && itemId === window.targetWifiSsid
-            property bool isSpecialAction: itemId === "action_scan" || itemId === "action_settings" || itemId === "ip_0" || itemId === "action_portal" || itemId.indexOf("forget_") === 0
+            property bool isSpecialAction: itemId === "action_scan" || itemId === "action_settings" || itemId === "action_manage" || itemId === "ip_0" || itemId === "action_portal" || itemId.indexOf("forget_") === 0
             property bool isHighlighted: isPairedBT || isTargetWifi || isSpecialAction
 
             property bool isCurrentlyConnected: {
@@ -225,7 +225,9 @@ Item {
                 let currentMac = typeof mac !== "undefined" ? mac : "";
                 let currentIsInfoNode = typeof isInfoNode !== "undefined" ? isInfoNode : false;
 
-                if (currentCmd === "TOGGLE_VIEW") {
+                if (currentCmd === "OPEN_MANAGE") {
+                    Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/serpantinum", "msg", "toggle", "netmanage", window.activeMode === "bt" ? "bt" : "wifi"]);
+                } else if (currentCmd === "TOGGLE_VIEW") {
                     floatCardDelegateContainer.isCardHovered = false;
                     window.hoveredCardCount = 0;
                     window.showInfoView = !window.showInfoView;

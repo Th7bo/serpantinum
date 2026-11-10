@@ -84,6 +84,15 @@ function getLayout(name, mx, my, mw, mh, userScale, barPosition) {
                 "right": { anchor: "bottom-right", mr: 52, mb: 4 } 
             } 
         },
+        "netmanage": {
+            w: 460, h: 600, comp: "network/NetworkManage.qml",
+            pos: {
+                "top": { anchor: "top-right", mt: 52, mr: 4 },
+                "bottom": { anchor: "bottom-right", mb: 52, mr: 4 },
+                "left": { anchor: "bottom-left", ml: 52, mb: 4 },
+                "right": { anchor: "bottom-right", mr: 52, mb: 4 }
+            }
+        },
         "volume": { 
             w: 410, h: 580, comp: "volume/VolumePopup.qml", 
             pos: { 
