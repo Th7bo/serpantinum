@@ -82,13 +82,6 @@ PanelWindow {
         ? ThemeBackend.borderRadius
         : s(12)
 
-    property real surfaceOpacity: {
-        let v = 100;
-        if (dockSettings.opacity !== undefined) v = Number(dockSettings.opacity);
-        else if (dockSettings.transparency !== undefined) v = 100 - Number(dockSettings.transparency);
-        return Math.max(0.0, Math.min(1.0, v / 100.0));
-    }
-
     property real menuWidth: s(248)
     property real menuHeight: contentCol.implicitHeight
     property real menuOffset: s(16) + (dockSettings.floating ? s(8) : 0)
@@ -151,7 +144,7 @@ PanelWindow {
                 property: "animProgress"
                 from: menuContainer.animProgress > 0.8 ? 0.2 : 0.0
                 to: 1.0
-                duration: 180
+                duration: 150
                 easing.type: Easing.OutBack
                 easing.overshoot: 1.05
             }
@@ -235,9 +228,15 @@ PanelWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: dockAppMenuWindow.s(32) + dockAppMenuWindow.s(8)
-                    color: Qt.alpha(ThemeBackend.base, dockAppMenuWindow.surfaceOpacity)
+                    color: Qt.alpha(ThemeBackend.base, ThemeBackend.elementOpacity)
                     radius: dockAppMenuWindow.cornerRadius
                     clip: true
+
+                    WallpaperBlur {
+                        z: -1
+                        anchors.fill: parent
+                        radius: parent.radius
+                    }
 
                     Item {
                         anchors.fill: parent
@@ -251,6 +250,7 @@ PanelWindow {
                             textFontSize: dockAppMenuWindow.s(12)
                             buttonText: DockAppMenuController.appName || DockAppMenuController.desktopId
                             accentColor: ThemeBackend.surface0
+                            bgOpacity: ThemeBackend.elementOpacity
                             textColor: ThemeBackend.text
                             onClicked: {
                                 if (dockAppMenuWindow.hasWindows) {
@@ -258,7 +258,7 @@ PanelWindow {
                                         WindowTracker.focusWindow(dockAppMenuWindow.windowsList[0]);
                                     }
                                 } else if (typeof DesktopEntries !== "undefined" && DockAppMenuController.desktopId) {
-                                    let entry = DesktopEntries.byId(DockAppMenuController.desktopId);
+                                    let entry = DesktopEntries.byId(DockAppMenuController.desktopId) || DesktopEntries.byId(String(DockAppMenuController.desktopId).replace(/\.desktop$/, ""));
                                     if (entry) entry.execute();
                                 }
                                 DockAppMenuController.hide();
@@ -304,9 +304,15 @@ PanelWindow {
                     visible: dockAppMenuWindow.hasWindows
                     Layout.fillWidth: true
                     Layout.preferredHeight: windowsCol.implicitHeight + dockAppMenuWindow.s(8)
-                    color: Qt.alpha(ThemeBackend.base, dockAppMenuWindow.surfaceOpacity)
+                    color: Qt.alpha(ThemeBackend.base, ThemeBackend.elementOpacity)
                     radius: dockAppMenuWindow.cornerRadius
                     clip: true
+
+                    WallpaperBlur {
+                        z: -1
+                        anchors.fill: parent
+                        radius: parent.radius
+                    }
 
                     ColumnLayout {
                         id: windowsCol
@@ -342,6 +348,7 @@ PanelWindow {
                                         return t + ws;
                                     }
                                     accentColor: modelData.focused ? ThemeBackend.mauve : ThemeBackend.surface0
+                                    bgOpacity: ThemeBackend.elementOpacity
                                     textColor: modelData.focused ? ThemeBackend.crust : ThemeBackend.text
                                     onClicked: {
                                         if (typeof WindowTracker !== "undefined") {
@@ -356,22 +363,22 @@ PanelWindow {
                                     Layout.fillHeight: true
                                     clip: true
                                     Behavior on Layout.preferredWidth {
-                                        NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                                        NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
                                     }
 
-                                    IconButton {
+                                    CloseButton {
                                         x: parent.width - width
                                         width: dockAppMenuWindow.s(30)
                                         height: dockAppMenuWindow.s(30)
                                         size: dockAppMenuWindow.s(30)
                                         cornerRadius: dockAppMenuWindow.s(7)
                                         accentColor: ThemeBackend.surface0
+                                        bgOpacity: ThemeBackend.elementOpacity
                                         textColor: ThemeBackend.red
-                                        buttonIcon: "󰅖"
                                         iconFontSize: dockAppMenuWindow.s(13)
                                         opacity: rowHover.hovered ? 1.0 : 0.0
                                         Behavior on opacity {
-                                            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                                            NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
                                         }
                                         onClicked: {
                                             if (typeof WindowTracker !== "undefined") {
@@ -389,9 +396,15 @@ PanelWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: actionsCol.implicitHeight + dockAppMenuWindow.s(8)
-                    color: Qt.alpha(ThemeBackend.base, dockAppMenuWindow.surfaceOpacity)
+                    color: Qt.alpha(ThemeBackend.base, ThemeBackend.elementOpacity)
                     radius: dockAppMenuWindow.cornerRadius
                     clip: true
+
+                    WallpaperBlur {
+                        z: -1
+                        anchors.fill: parent
+                        radius: parent.radius
+                    }
 
                     ColumnLayout {
                         id: actionsCol
@@ -412,10 +425,11 @@ PanelWindow {
                             textFontSize: dockAppMenuWindow.s(11)
                             buttonText: I18n.t("guide.dock.window_menu.new_window", "New window")
                             accentColor: ThemeBackend.surface0
+                            bgOpacity: ThemeBackend.elementOpacity
                             textColor: ThemeBackend.text
                             onClicked: {
                                 if (typeof DesktopEntries !== "undefined" && DockAppMenuController.desktopId) {
-                                    let entry = DesktopEntries.byId(DockAppMenuController.desktopId);
+                                    let entry = DesktopEntries.byId(DockAppMenuController.desktopId) || DesktopEntries.byId(String(DockAppMenuController.desktopId).replace(/\.desktop$/, ""));
                                     if (entry) entry.execute();
                                 }
                                 DockAppMenuController.hide();
@@ -433,6 +447,7 @@ PanelWindow {
                             textFontSize: dockAppMenuWindow.s(11)
                             buttonText: DockAppMenuController.isPinned ? I18n.t("guide.dock.window_menu.unpin", "Unpin from dock") : I18n.t("guide.dock.window_menu.pin", "Pin to dock")
                             accentColor: ThemeBackend.surface0
+                            bgOpacity: ThemeBackend.elementOpacity
                             textColor: ThemeBackend.text
                             onClicked: {
                                 if (DockAppMenuController.isPinned) {

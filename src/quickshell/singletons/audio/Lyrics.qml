@@ -13,9 +13,27 @@ Item {
     property var customPlayer: null
     readonly property var player: customPlayer || MprisController.activePlayer
 
-    readonly property bool isMediaActive: player !== null && player.playbackState !== MprisPlaybackState.Stopped && (player.trackTitle || "") !== ""
-    readonly property string trackTitle: player ? (player.trackTitle || "") : ""
-    readonly property string trackArtist: player ? (player.trackArtist || "") : ""
+    readonly property bool isMediaActive: {
+        try {
+            return !!player && player.playbackState !== MprisPlaybackState.Stopped && (player.trackTitle || "") !== "";
+        } catch (e) {
+            return false;
+        }
+    }
+    readonly property string trackTitle: {
+        try {
+            return player ? String(player.trackTitle || "") : "";
+        } catch (e) {
+            return "";
+        }
+    }
+    readonly property string trackArtist: {
+        try {
+            return player ? String(player.trackArtist || "") : "";
+        } catch (e) {
+            return "";
+        }
+    }
     readonly property string currentTrackKey: isMediaActive ? (trackArtist.trim() + " - " + trackTitle.trim()) : ""
 
     property var localCache: ({})
@@ -62,8 +80,8 @@ Item {
         subscribers = Math.max(0, subscribers - 1);
         if (subscribers === 0) {
             searchTimeoutTimer.stop();
-            cacheReadProcess.running = false;
-            fileReadProcess.running = false;
+            cacheReadProcess.targetKey = "";
+            fileReadProcess.targetKey = "";
             if (loading) {
                 loading = false;
                 lastFetchedKey = "";
@@ -139,32 +157,115 @@ Item {
         return html.trim();
     }
 
+    property real polledPosition: 0
+    property real nextBoundaryTime: Infinity
+
+    function computeNextBoundary() {
+        let ly = root.lyrics;
+        if (!root.hasLyrics || !ly || ly.length === 0) return Infinity;
+        let p = root.currentPosition;
+        let idx = -1;
+        for (let i = 0; i < ly.length; i++) {
+            if (p >= ly[i].time) idx = i;
+            else break;
+        }
+        let best = Infinity;
+        if (idx + 1 < ly.length) best = ly[idx + 1].time;
+        if (idx >= 0) {
+            let words = ly[idx].words;
+            if (words) {
+                for (let i = 0; i < words.length; i++) {
+                    let w = words[i];
+                    let end = (w.endTime !== undefined && w.endTime > w.time) ? w.endTime : (i < words.length - 1 ? words[i + 1].time : (w.time + 0.8));
+                    if (w.time > p && w.time < best) best = w.time;
+                    if (end > p && end < best) best = end;
+                }
+            }
+        }
+        return best;
+    }
+
+    property real pendingJumpPosition: -1
+    property real seekGuardTarget: 0
+    property double seekGuardUntil: 0
+
+    function noteSeek(t) {
+        root.seekGuardTarget = t;
+        root.seekGuardUntil = Date.now() + 1500;
+        root.pendingJumpPosition = -1;
+        root.polledPosition = t;
+        root.currentPosition = t;
+    }
+
+    function applyPosition(pos) {
+        if (typeof pos !== "number" || !isFinite(pos) || pos < 0) return;
+
+        if (root.seekGuardUntil > 0) {
+            if (Date.now() < root.seekGuardUntil && Math.abs(pos - root.seekGuardTarget) > 1.5) return;
+            root.seekGuardUntil = 0;
+        }
+
+        root.polledPosition = pos;
+
+        if (pos < root.currentPosition - 0.3) {
+            let pending = root.pendingJumpPosition;
+            if (pending >= 0 && Math.abs(pos - pending) < 1.5) {
+                root.pendingJumpPosition = -1;
+                root.currentPosition = pos;
+            } else {
+                root.pendingJumpPosition = pos;
+            }
+            return;
+        }
+
+        root.pendingJumpPosition = -1;
+        if (pos >= root.nextBoundaryTime) {
+            root.currentPosition = pos;
+        }
+    }
+
+    onCurrentPositionChanged: root.nextBoundaryTime = root.computeNextBoundary()
+
+    function refreshForLyrics() {
+        if (root.hasLyrics && positionTimer.running) root.currentPosition = root.polledPosition;
+        root.nextBoundaryTime = root.computeNextBoundary();
+    }
+
+    onLyricsChanged: root.refreshForLyrics()
+    onHasLyricsChanged: root.refreshForLyrics()
+
     Timer {
         id: positionTimer
-        interval: 25
+        interval: 100
         repeat: true
         running: root.subscribers > 0 && root.isMediaActive && (root.player ? root.player.isPlaying : false)
+        onRunningChanged: {
+            if (running) positionTimer.interval = 25;
+        }
         onTriggered: {
             if (root.player) {
                 if (typeof root.player.positionChanged === "function") {
                     root.player.positionChanged();
                 }
-                root.currentPosition = root.player.position;
+                root.applyPosition(root.player.position);
             } else {
-                root.currentPosition = MprisController.livePosition;
+                root.applyPosition(MprisController.livePosition);
+            }
+            if (!root.hasLyrics) {
+                positionTimer.interval = 250;
+            } else {
+                positionTimer.interval = (root.nextBoundaryTime - root.polledPosition < 0.3) ? 25 : 100;
             }
         }
     }
 
     Timer {
         id: searchTimeoutTimer
-        interval: 3500
+        interval: 10000
         repeat: false
         onTriggered: {
             if (root.loading && root.activeSession && !root.activeSession.done) {
-                root.activeSession.netEaseDone = true;
-                root.activeSession.lrclibDone = true;
-                root.checkCompletion(root.activeSession);
+                root.loading = false;
             }
         }
     }
@@ -186,7 +287,13 @@ Item {
     Connections {
         target: root.player
         function onPositionChanged() {
-            if (root.player) root.currentPosition = root.player.position;
+            if (!root.player) return;
+            if (root.player.isPlaying) {
+                if (!positionTimer.running) root.applyPosition(root.player.position);
+            } else {
+                root.pendingJumpPosition = -1;
+                root.currentPosition = root.player.position;
+            }
         }
         function onTrackTitleChanged() {
             root.triggerSearch();
@@ -202,6 +309,13 @@ Item {
     onCurrentTrackKeyChanged: triggerSearch()
     onPlayerChanged: triggerSearch()
 
+    property double lastAttemptAt: 0
+
+    function resetPositionGuards() {
+        root.pendingJumpPosition = -1;
+        root.seekGuardUntil = 0;
+    }
+
     function triggerSearch() {
         if (root.subscribers <= 0) return;
 
@@ -216,17 +330,24 @@ Item {
             return;
         }
 
-        if (currentTrackKey === lastFetchedKey && currentTrackKey === activeFetchKey) {
-            if (loading) return;
+        let isNewKey = currentTrackKey !== activeFetchKey;
+        if (!isNewKey) {
             if (lyrics && lyrics.length > 0) return;
+            if (loading) return;
+            if (Date.now() - lastAttemptAt < 30000) return;
         }
 
         lastFetchedKey = currentTrackKey;
         activeFetchKey = currentTrackKey;
+        if (activeSession) activeSession.done = true;
         activeSession = null;
         searchTimeoutTimer.stop();
+        cacheReadProcess.targetKey = "";
+        if (isNewKey) resetPositionGuards();
         lyrics = [];
         hasLyrics = false;
+        loading = true;
+        lastAttemptAt = Date.now();
         checkCacheAndFetch(currentTrackKey);
     }
 
@@ -238,21 +359,23 @@ Item {
         }
 
         root.loading = true;
-        cacheReadProcess.running = false;
         cacheReadProcess.targetKey = key;
-        cacheReadProcess.running = true;
+        let cacheFile = root.cacheFilePath(key);
+        if (cacheReadProcess.path === cacheFile) cacheReadProcess.reload();
+        else cacheReadProcess.path = cacheFile;
+    }
+
+    function cacheFilePath(key) {
+        let base = Quickshell.env("XDG_CACHE_HOME") || (Caching.home + "/.cache");
+        return base + "/serpantinum/lyrics/" + Qt.md5(key) + ".json";
     }
 
     function saveLyricsToDisk(key, parsedList) {
         if (!key || !parsedList || parsedList.length === 0) return;
         try {
             let jsonStr = JSON.stringify(parsedList);
-            if (saveLyricsProcess.running) {
-                saveLyricsProcess.running = false;
-            }
-            saveLyricsProcess.pendingKey = key;
-            saveLyricsProcess.pendingData = jsonStr;
-            saveLyricsProcess.running = true;
+            saveLyricsProcess.path = root.cacheFilePath(key);
+            saveLyricsProcess.setText(jsonStr);
         } catch (e) {}
     }
 
@@ -603,6 +726,8 @@ Item {
         } catch (e) {}
         album = cleanString(album);
 
+        if (activeSession) activeSession.done = true;
+
         let session = {
             key: requestKey,
             artist: cleanA,
@@ -871,9 +996,8 @@ Item {
 
         let key = root.currentTrackKey;
         fileReadProcess.targetKey = key;
-        fileReadProcess.command = ["cat", cleanPath];
-        fileReadProcess.running = false;
-        fileReadProcess.running = true;
+        if (fileReadProcess.path === cleanPath) fileReadProcess.reload();
+        else fileReadProcess.path = cleanPath;
     }
 
     function loadLocalLyricsContent(content, key) {
@@ -892,65 +1016,48 @@ Item {
         }
     }
 
-    Process {
+    FileView {
         id: cacheReadProcess
+        printErrors: false
         property string targetKey: ""
-        command: [
-            "bash",
-            "-c",
-            'CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/serpantinum/lyrics"; HASH=$(echo -n "$1" | md5sum | cut -d" " -f1); FILE="$CACHE_DIR/${HASH}.json"; if [ -f "$FILE" ] && [ -s "$FILE" ]; then cat "$FILE"; fi',
-            "--",
-            targetKey
-        ]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let content = this.text.trim();
-                let key = cacheReadProcess.targetKey;
-                if (key !== root.currentTrackKey || key !== root.activeFetchKey) return;
+        onLoaded: handleRead(text())
+        onLoadFailed: handleRead("")
 
-                if (content !== "") {
-                    try {
-                        let parsed = JSON.parse(content);
-                        if (Array.isArray(parsed) && parsed.length > 0) {
-                            let mem = root.getMemCache();
-                            if (mem) mem[key] = parsed;
-                            root.applyLyrics(parsed, key, false);
-                            return;
-                        }
-                    } catch(e) {}
-                }
+        function handleRead(raw) {
+            let key = cacheReadProcess.targetKey;
+            if (key === "" || key !== root.currentTrackKey || key !== root.activeFetchKey) return;
+            let content = raw.trim();
 
-                root.fetchLyrics(root.trackArtist, root.trackTitle, key);
+            if (content !== "") {
+                try {
+                    let parsed = JSON.parse(content);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        let mem = root.getMemCache();
+                        if (mem) mem[key] = parsed;
+                        root.applyLyrics(parsed, key, false);
+                        return;
+                    }
+                } catch(e) {}
             }
+
+            root.fetchLyrics(root.trackArtist, root.trackTitle, key);
         }
     }
 
-    Process {
+    FileView {
         id: saveLyricsProcess
-        property string pendingKey: ""
-        property string pendingData: ""
-        command: [
-            "bash",
-            "-c",
-            'CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/serpantinum/lyrics"; mkdir -p "$CACHE_DIR"; HASH=$(echo -n "$1" | md5sum | cut -d" " -f1); printf "%s" "$2" > "$CACHE_DIR/${HASH}.json"',
-            "--",
-            pendingKey,
-            pendingData
-        ]
-        running: false
+        printErrors: false
+        preload: false
     }
 
-    Process {
+    FileView {
         id: fileReadProcess
+        printErrors: false
         property string targetKey: ""
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let content = this.text;
-                if (fileReadProcess.targetKey === root.currentTrackKey && content.trim() !== "") {
-                    root.loadLocalLyricsContent(content, fileReadProcess.targetKey);
-                }
+        onLoaded: {
+            let content = text();
+            if (targetKey !== "" && targetKey === root.currentTrackKey && content.trim() !== "") {
+                root.loadLocalLyricsContent(content, targetKey);
             }
         }
     }

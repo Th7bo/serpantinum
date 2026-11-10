@@ -1,8 +1,8 @@
 import QtQuick
 import "../../"
 
-// Cava visualizer drawn by a single ShaderEffect: bars or a wave, horizontal or vertical.
-// The owner subscribes to Cava and sets active. Levels are mapped and smoothed here,
+// Spectrum visualizer drawn by a single ShaderEffect: bars or a wave, horizontal or vertical.
+// The owner subscribes to Spectrum and sets active. Levels are mapped and smoothed here,
 // the shaders in assets/shaders only draw them.
 Item {
     id: root
@@ -22,7 +22,7 @@ Item {
     property real threshold: 0.03
     property real gamma: 1.15
 
-    // How far a level moves to its target per 16 ms, 1 follows cava directly
+    // How far a level moves to its target per 16 ms, 1 follows the spectrum directly
     property real rise: 1.0
     property real fall: 1.0
 
@@ -52,11 +52,12 @@ Item {
     // Where every level reads the spectrum, rebuilt only when the count or the mapping changes
     readonly property var sourceMap: {
         let n = root.levelCount;
-        let srcLen = Cava.barCount;
+        let srcLen = Spectrum.barCount;
         let half = (n - 1) / 2;
+        let ring = root.continuous && root.ringRadius > 0;
         let map = [];
         for (let i = 0; i < n; i++) {
-            let norm = root.mirrored ? (half > 0 ? Math.abs(i - half) / half : 0) : i / (n - 1);
+            let norm = ring ? Math.abs(i - n / 2) / (n / 2) : (root.mirrored ? (half > 0 ? Math.abs(i - half) / half : 0) : i / (n - 1));
             let pos = Math.pow(norm, root.curve) * (srcLen - 1);
             let idx0 = Math.floor(pos);
             map.push({ idx0: idx0, idx1: Math.min(srcLen - 1, idx0 + 1), frac: root.interpolate ? pos - idx0 : 0 });
@@ -113,11 +114,13 @@ Item {
     function shapeWave(levels) {
         let edges = root.waveEdge;
         let n = levels.length;
+        let ring = root.ringRadius > 0;
         let out = [];
         for (let i = 0; i < n; i++) {
-            let prev = i > 0 ? levels[i - 1] : levels[i];
-            let next = i < n - 1 ? levels[i + 1] : levels[i];
-            out.push((prev * 0.25 + levels[i] * 0.5 + next * 0.25) * edges[i]);
+            let prev = i > 0 ? levels[i - 1] : (ring ? levels[n - 1] : levels[i]);
+            let next = i < n - 1 ? levels[i + 1] : (ring ? levels[0] : levels[i]);
+            let side = ring ? 0.14 : 0.25;
+            out.push((prev * side + levels[i] * (1 - 2 * side) + next * side) * (ring ? 1.0 : edges[i]));
         }
         return out;
     }
@@ -131,7 +134,7 @@ Item {
     }
 
     property var targets: {
-        let source = root.active ? Cava.barLevels : null;
+        let source = root.active ? Spectrum.barLevels : null;
         let out;
         if (root.previewDemo && root.active && (!source || source.every(v => v === 0))) {
             let dummy = root.demoTick;
@@ -166,12 +169,19 @@ Item {
     }
 
     FrameAnimation {
+        id: levelAnimation
+        property real pendingTime: 0.0
         running: root.settling && root.visible
         onTriggered: {
+            levelAnimation.pendingTime += frameTime;
+            if (levelAnimation.pendingTime + frameTime / 2 < 1 / 60) return;
+            let elapsed = levelAnimation.pendingTime;
+            levelAnimation.pendingTime = 0.0;
+
             let target = root.targets;
             let cur = root.currentLevels;
-            let rise = 1 - Math.pow(1 - root.rise, frameTime / 0.016);
-            let fall = 1 - Math.pow(1 - root.fall, frameTime / 0.016);
+            let rise = 1 - Math.pow(1 - root.rise, elapsed / 0.016);
+            let fall = 1 - Math.pow(1 - root.fall, elapsed / 0.016);
             let next = new Array(target.length);
             let moving = false;
             let sum = 0.0;
@@ -225,6 +235,6 @@ Item {
         property real ringBarWidth: root.ringBarWidth
         property real tintStrength: root.tintStrength
 
-        fragmentShader: "file://" + Caching.serpantinumDir + "/assets/shaders/audio/" + (root.continuous ? "visualizer_wave" : "visualizer_bars") + ".frag.qsb"
+        fragmentShader: "file://" + Caching.serpantinumDir + "/assets/shaders/audio/" + (root.continuous ? (root.ringRadius > 0 ? "visualizer_ring_wave" : "visualizer_wave") : "visualizer_bars") + ".frag.qsb"
     }
 }

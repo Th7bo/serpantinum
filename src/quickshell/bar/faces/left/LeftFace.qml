@@ -4,120 +4,270 @@ import Quickshell
 import Quickshell.Io
 import "../../../reusables"
 import "../../../"
+import "../../"
 
 Item {
     id: root
     property var module: null
     property var widget: module
 
-    readonly property bool isCompact: module ? module.isCompact : false
-    readonly property var barWindow: module ? module.barWindow : null
-    readonly property bool showLayout: barWindow ? Boolean(barWindow.isStartupReady) : true
-    readonly property real barOpacity: (module && module.barOpacity !== undefined) ? module.barOpacity : (barWindow && barWindow.barOpacity !== undefined ? barWindow.barOpacity : (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.bar && Config.rawSettings.bar.opacity !== undefined ? (Config.rawSettings.bar.opacity / 100.0) : 1.0))
+    readonly property var activeTarget: widget || module
 
-    property alias helpButton: helpButton
+    property string orientation: activeTarget && activeTarget.orientation !== undefined ? activeTarget.orientation : "horizontal"
+    readonly property bool isVertical: orientation === "vertical"
 
-    property real targetWidth: (module && module.moduleActive) ? (leftLayout.width + (barWindow ? barWindow.s(isCompact ? 6 : 8) : (isCompact ? 6 : 8))) : 0
+    readonly property bool isCompact: activeTarget ? Boolean(activeTarget.isCompact) : false
+    readonly property var barWindow: activeTarget ? activeTarget.barWindow : null
+    readonly property bool isPreview: activeTarget ? Boolean(activeTarget.isPreview) : false
+    readonly property bool showLayout: (barWindow && !isPreview) ? Boolean(barWindow.isStartupReady) : true
+    readonly property real barOpacity: ThemeBackend.elementOpacity
 
-    implicitWidth: targetWidth
-    implicitHeight: parent ? parent.height : 0
+    function s(val) {
+        if (barWindow && typeof barWindow.cs === "function") return barWindow.cs(val);
+        if (activeTarget && typeof activeTarget.s === "function") return activeTarget.s(val);
+        return val;
+    }
 
-    Row {
-        id: leftLayout
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.left: parent.left
-        anchors.leftMargin: barWindow ? barWindow.s(root.isCompact ? 3 : 4) : (root.isCompact ? 3 : 4)
-        spacing: barWindow ? barWindow.s(root.isCompact ? 5 : 6) : (root.isCompact ? 5 : 6)
+    property int configRevision: 0
 
-        property int pillHeight: barWindow ? barWindow.s(root.isCompact ? 28 : 30) : (root.isCompact ? 28 : 30)
+    Connections {
+        target: (typeof Config !== "undefined") ? Config : null
+        function onSettingsLoaded() { root.configRevision++; }
+        function onRawSettingsChanged() { root.configRevision++; }
+    }
+
+    property string menuStyle: {
+        if (widget && widget !== root && widget.menuStyle !== undefined) return widget.menuStyle;
+        let dummy = configRevision;
+        if (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.bar && Config.rawSettings.bar.menuStyle) return Config.rawSettings.bar.menuStyle;
+        return "button";
+    }
+
+    property var menuItems: {
+        if (widget && widget !== root && widget.menuItems !== undefined) return widget.menuItems;
+        let dummy = configRevision;
+        let bs = (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.bar) ? Config.rawSettings.bar : {};
+        return BarModuleRegistry.menuItemsFromSettings(bs);
+    }
+
+    readonly property bool showCaffeine: menuItems.indexOf("caffeine") !== -1
+    readonly property bool iconOnly: menuStyle === "icon"
+
+    readonly property var helpButton: {
+        let dummy = menuRepeater.count;
+        let found = null;
+        for (let i = 0; i < menuRepeater.count; i++) {
+            let it = menuRepeater.itemAt(i);
+            if (!it) continue;
+            if (it.itemId === "settings") return it;
+            if (!found && it.itemId === "launcher") found = it;
+        }
+        return found || menuRepeater.itemAt(0);
+    }
+
+    property bool nightLightActive: {
+        let dummy = configRevision;
+        return (typeof Gamma !== "undefined" && typeof Gamma.isAnyEnabled === "function") ? Gamma.isAnyEnabled() : false;
+    }
+
+    property bool caffeineActive: {
+        let dummy = configRevision;
+        let idleObj = (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.idle) ? Config.rawSettings.idle : null;
+        if (!idleObj || !idleObj.manualInhibit) return false;
+        let endTime = Number(idleObj.caffeineEndTime) || 0;
+        return endTime <= 0 || endTime > Date.now();
+    }
+
+    Connections {
+        target: (typeof Gamma !== "undefined") ? Gamma : null
+        ignoreUnknownSignals: true
+        function onSettingsChanged() { root.configRevision++; }
+    }
+
+    Timer {
+        interval: 15000
+        repeat: true
+        running: root.showCaffeine && root.caffeineActive && !root.isPreview
+        onTriggered: {
+            let idleObj = Config.getSetting("idle", {}) || {};
+            let endTime = Number(idleObj.caffeineEndTime) || 0;
+            if (endTime > 0 && endTime <= Date.now()) root.setCaffeine(false);
+        }
+    }
+
+    function toggleNightLight() {
+        if (typeof Gamma === "undefined" || typeof Gamma.setEnabled !== "function") return;
+        let target = !root.nightLightActive;
+        let monNames = [];
+        let ds = Config.getSetting("display", {"monitors": {}});
+        let mons = (ds && ds.monitors) ? ds.monitors : {};
+        for (let m in mons) {
+            if (monNames.indexOf(m) === -1) monNames.push(m);
+        }
+        if (Quickshell.screens) {
+            for (let i = 0; i < Quickshell.screens.length; i++) {
+                let scr = Quickshell.screens[i];
+                if (scr && scr.name && monNames.indexOf(scr.name) === -1) monNames.push(scr.name);
+            }
+        }
+        if (monNames.length > 0) {
+            for (let i = 0; i < monNames.length; i++) Gamma.setEnabled(monNames[i], target);
+        } else {
+            Gamma.setEnabled("", target);
+        }
+    }
+
+    function shuffleWallpaper(btn) {
+        let scr = barWindow ? barWindow.screen : null;
+        let transition = "circle";
+        if (btn && scr && scr.width > 0 && scr.height > 0) {
+            let pt = btn.mapToItem(null, btn.width / 2, btn.height / 2);
+            let pos = barWindow.barPosition;
+            let x = pt.x + (pos === "right" ? scr.width - barWindow.width : 0);
+            let y = pt.y + (pos === "bottom" ? scr.height - barWindow.height : 0);
+            transition = "circle:" + Math.max(0, Math.min(1, x / scr.width)) + ":" + Math.max(0, Math.min(1, y / scr.height));
+        }
+        Wallpaper.shuffle(scr && scr.name ? scr.name : "", transition);
+    }
+
+    function setCaffeine(enabled) {
+        let now = Date.now();
+        let idleObj = Object.assign({}, Config.getSetting("idle", {}));
+        idleObj.manualInhibit = enabled;
+        idleObj.caffeineStartTime = enabled ? now : 0;
+        idleObj.caffeineEndTime = enabled ? now + 3600 * 1000 : 0;
+        Config.setSetting("idle", idleObj);
+    }
+
+    // Screen recording toggle: opens the screenshot overlay in video mode,
+    // or stops the running recording (screenshot.sh stops it when called again).
+    readonly property bool showRecord: menuItems.indexOf("record") !== -1
+    property bool recording: false
+    readonly property string recDir: Caching.getCacheDir("recording")
+    readonly property string shotDir: Caching.getCacheDir("screenshot")
+
+    function toggleRecording() {
+        let script = Caching.serpantinumDir + "/scripts/screenshot.sh";
+        if (root.recording)
+            Quickshell.execDetached(["bash", script]);
+        else
+            Quickshell.execDetached(["bash", "-c", "mkdir -p \"$1\" && echo true > \"$1/video_mode\" && exec bash \"$2\"", "rec", root.shotDir, script]);
+        recPoll.restart();
+    }
+
+    Process {
+        id: recCheck
+        command: ["bash", "-c", "p=$(cat \"$1/rec_pid\" 2>/dev/null) && [ -n \"$p\" ] && kill -0 \"$p\" 2>/dev/null && echo 1 || echo 0", "chk", root.recDir]
+        stdout: StdioCollector {
+            onStreamFinished: root.recording = text.trim() === "1"
+        }
+    }
+
+    Timer {
+        id: recPoll
+        interval: 1500
+        repeat: true
+        running: root.showRecord && root.showLayout && !root.isPreview
+        triggeredOnStart: true
+        onTriggered: if (!recCheck.running) recCheck.running = true
+    }
+
+    readonly property int menuCount: menuItems ? menuItems.length : 0
+    readonly property real buttonsLength: menuCount > 0
+        ? menuCount * (isVertical ? s(isCompact ? 28 : 30) : s(isCompact ? 30 : 32)) + (menuCount - 1) * s(isCompact ? 2 : 4)
+        : 0
+    property real targetLength: (!module || module.moduleActive) ? (buttonsLength + s(isCompact ? 6 : 8)) : 0
+
+    implicitWidth: isVertical ? (parent ? parent.width : 0) : targetLength
+    implicitHeight: isVertical ? targetLength : (parent ? parent.height : 0)
+
+    component MenuButton: Item {
+        id: menuBtn
+        property string glyph: ""
+        property bool active: false
+        property color activeColor: ThemeBackend.peach
+        property int glyphYOffset: 0
+        signal clicked()
+
+        width: root.isVertical ? root.s(root.isCompact ? 28 : 30) : root.s(root.isCompact ? 30 : 32)
+        height: root.s(root.isCompact ? 28 : 30)
+
+        opacity: (root.isVertical || root.showLayout) ? 1.0 : 0.0
+        transform: Translate {
+            y: (root.isVertical || root.showLayout) ? 0 : root.s(15)
+            Behavior on y { NumberAnimation { duration: 620; easing.type: Easing.OutQuint } }
+        }
+        Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
 
         IconButton {
-            id: helpButton
-            height: leftLayout.pillHeight
-            width: barWindow ? barWindow.s(root.isCompact ? 30 : 32) : (root.isCompact ? 30 : 32)
-            visible: true
-            iconOffsetX: 0
-
-            cornerRadius: Math.max(0, ThemeBackend.borderRadius - (barWindow ? barWindow.s(2) : 2))
-            buttonIcon: "󰒓"
-            iconFontSize: barWindow ? barWindow.s(root.isCompact ? 14 : 15) : (root.isCompact ? 14 : 15)
-            accentColor: root.isCompact ? Qt.lighter(ThemeBackend.surface0, 1.18) : ThemeBackend.surface0
-            bgOpacity: root.barOpacity
-            textColor: isHoveredOrHighlighted ? ThemeBackend.text : (root.isCompact ? ThemeBackend.subtext0 : ThemeBackend.overlay2)
-
-            opacity: root.showLayout ? 1.0 : 0.0
-            transform: Translate {
-                y: root.showLayout ? 0 : (barWindow ? barWindow.s(15) : 15)
-                Behavior on y { NumberAnimation { duration: 620; easing.type: Easing.OutQuint } }
-            }
-            Behavior on opacity { NumberAnimation { duration: 450; easing.type: Easing.OutCubic } }
-
-            onClicked: Quickshell.execDetached(["bash", "-c", Caching.serpantinumDir + "/scripts/qs_manager.sh toggle guide"])
+            anchors.fill: parent
+            visible: !root.iconOnly
+            cornerRadius: Math.max(0, ThemeBackend.borderRadius - root.s(2))
+            buttonIcon: menuBtn.glyph
+            iconOffsetY: menuBtn.glyphYOffset
+            iconFontSize: root.s(root.isCompact ? 14 : 15)
+            accentColor: menuBtn.active ? menuBtn.activeColor : (root.isCompact ? Qt.lighter(ThemeBackend.surface0, 1.18) : ThemeBackend.surface0)
+            bgOpacity: menuBtn.active ? 1.0 : root.barOpacity
+            textColor: menuBtn.active ? ThemeBackend.crust : (isHoveredOrHighlighted ? ThemeBackend.text : (root.isCompact ? ThemeBackend.subtext0 : ThemeBackend.overlay2))
+            onClicked: menuBtn.clicked()
         }
 
-        IconButton {
-            id: keybindsButton
-            height: leftLayout.pillHeight
-            width: helpButton.width
-            iconOffsetX: 0
-
-            cornerRadius: helpButton.cornerRadius
-            buttonIcon: "󰌌"
-            iconFontSize: helpButton.iconFontSize
-            accentColor: helpButton.accentColor
-            bgOpacity: root.barOpacity
-            textColor: isHoveredOrHighlighted ? ThemeBackend.text : (root.isCompact ? ThemeBackend.subtext0 : ThemeBackend.overlay2)
-
-            opacity: helpButton.opacity
-
-            onClicked: Quickshell.execDetached(["niri", "msg", "action", "show-hotkey-overlay"])
+        Text {
+            anchors.centerIn: parent
+            anchors.verticalCenterOffset: menuBtn.glyphYOffset
+            visible: root.iconOnly
+            text: menuBtn.glyph
+            font.family: ThemeBackend.iconFont
+            font.pixelSize: root.s(root.isCompact ? 15 : 16)
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            color: menuBtn.active ? menuBtn.activeColor : (iconMouse.containsMouse ? ThemeBackend.text : (root.isCompact ? ThemeBackend.subtext0 : ThemeBackend.overlay2))
+            Behavior on color { ColorAnimation { duration: 150 } }
         }
 
-        // Screen recording toggle: opens the screenshot overlay in video mode,
-        // or stops the running recording (screenshot.sh stops it when called again).
-        IconButton {
-            id: recordButton
-            property bool recording: false
-            readonly property string recDir: Caching.getCacheDir("recording")
-            readonly property string shotDir: Caching.getCacheDir("screenshot")
+        MouseArea {
+            id: iconMouse
+            anchors.fill: parent
+            visible: root.iconOnly
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: menuBtn.clicked()
+        }
+    }
 
-            height: leftLayout.pillHeight
-            width: helpButton.width
-            iconOffsetX: 0
+    AxisFlow {
+        id: buttonsFlow
+        vertical: root.isVertical
+        horizontalItemAlignment: Grid.AlignHCenter
+        verticalItemAlignment: Grid.AlignVCenter
+        spacing: root.s(root.isCompact ? 2 : 4)
+        anchors.centerIn: root.isVertical ? parent : undefined
+        anchors.verticalCenter: root.isVertical ? undefined : parent.verticalCenter
+        anchors.left: root.isVertical ? undefined : parent.left
+        anchors.leftMargin: root.isVertical ? 0 : root.s(root.isCompact ? 3 : 4)
 
-            cornerRadius: helpButton.cornerRadius
-            buttonIcon: recording ? "󰓛" : "󰑊"
-            iconFontSize: helpButton.iconFontSize
-            accentColor: helpButton.accentColor
-            bgOpacity: root.barOpacity
-            textColor: recording ? ThemeBackend.red : (isHoveredOrHighlighted ? ThemeBackend.text : (root.isCompact ? ThemeBackend.subtext0 : ThemeBackend.overlay2))
+        Repeater {
+            id: menuRepeater
+            model: root.menuItems
 
-            opacity: helpButton.opacity
-
-            onClicked: {
-                let script = Caching.serpantinumDir + "/scripts/screenshot.sh";
-                if (recording)
-                    Quickshell.execDetached(["bash", script]);
-                else
-                    Quickshell.execDetached(["bash", "-c", "mkdir -p \"$1\" && echo true > \"$1/video_mode\" && exec bash \"$2\"", "rec", shotDir, script]);
-                recPoll.restart();
-            }
-
-            Process {
-                id: recCheck
-                command: ["bash", "-c", "p=$(cat \"$1/rec_pid\" 2>/dev/null) && [ -n \"$p\" ] && kill -0 \"$p\" 2>/dev/null && echo 1 || echo 0", "chk", recordButton.recDir]
-                stdout: StdioCollector {
-                    onStreamFinished: recordButton.recording = text.trim() === "1"
+            MenuButton {
+                id: menuItem
+                required property string modelData
+                readonly property string itemId: modelData
+                glyph: (itemId === "record" && root.recording) ? "󰓛" : BarModuleRegistry.menuItemIcon(itemId)
+                glyphYOffset: itemId === "nightlight" ? -1 : 0
+                active: itemId === "nightlight" ? root.nightLightActive : (itemId === "caffeine" ? root.caffeineActive : (itemId === "record" ? root.recording : false))
+                activeColor: itemId === "caffeine" ? Qt.tint(ThemeBackend.peach, "#5c3016") : (itemId === "record" ? ThemeBackend.red : ThemeBackend.peach)
+                onClicked: {
+                    if (root.isPreview) return;
+                    if (itemId === "settings") Quickshell.execDetached(["bash", "-c", Caching.serpantinumDir + "/scripts/qs_manager.sh toggle settings"]);
+                    else if (itemId === "launcher") Quickshell.execDetached(["bash", "-c", Caching.serpantinumDir + "/scripts/qs_manager.sh toggle launcher"]);
+                    else if (itemId === "nightlight") root.toggleNightLight();
+                    else if (itemId === "caffeine") root.setCaffeine(!root.caffeineActive);
+                    else if (itemId === "shuffle") root.shuffleWallpaper(menuItem);
+                    else if (itemId === "keybinds") Quickshell.execDetached(["niri", "msg", "action", "show-hotkey-overlay"]);
+                    else if (itemId === "record") root.toggleRecording();
                 }
-            }
-
-            Timer {
-                id: recPoll
-                interval: 1500
-                repeat: true
-                running: root.showLayout
-                triggeredOnStart: true
-                onTriggered: if (!recCheck.running) recCheck.running = true
             }
         }
     }

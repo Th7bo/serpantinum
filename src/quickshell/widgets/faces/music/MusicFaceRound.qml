@@ -21,38 +21,23 @@ Item {
     property real maxAspect: 1.0
     property bool isRound: true
 
+    property bool continuous: false
+
     property var player: MprisController.activePlayer
     property bool isMediaActive: player !== null && player.playbackState !== MprisPlaybackState.Stopped && player.trackTitle !== ""
 
     property bool isVisVisible: visible
 
-    property bool isSubscribed: false
-
-    onIsVisVisibleChanged: updateSubscription()
-
-    function updateSubscription() {
-        if (isVisVisible && !isSubscribed) {
-            isSubscribed = true;
-            Cava.registerConsumer();
-        } else if (!isVisVisible && isSubscribed) {
-            isSubscribed = false;
-            Cava.unregisterConsumer();
-        }
-    }
-
-    Component.onCompleted: {
-        updateSubscription();
-    }
-
-    Component.onDestruction: {
-        if (isSubscribed) {
-            isSubscribed = false;
-            Cava.unregisterConsumer();
-        }
+    SubscriptionGate {
+        id: spectrumGate
+        target: Spectrum
+        acquire: "registerConsumer"
+        release: "unregisterConsumer"
+        wanted: root.isVisVisible
     }
 
     property int barCount: 64
-    property var rawBarLevels: Cava.barLevels
+    property var rawBarLevels: Spectrum.barLevels
 
     // Sub-bass and kick strength for the glow and the disc bounce
     property var beat: {
@@ -74,8 +59,8 @@ Item {
 
     property real availableRadius: Math.min(width, height) / 2
     property real dynMargin: 0
-    property real artRadius: availableRadius * 0.78
-    property real barHeightScale: 0.92
+    property real artRadius: availableRadius * (continuous ? 0.72 : 0.78)
+    property real barHeightScale: continuous ? 0.96 : 0.92
     property real maxBarHeight: (availableRadius - artRadius) * barHeightScale
     property real barWidth: Math.max(2.2, (2 * Math.PI * artRadius) / barCount * 0.60)
 
@@ -136,14 +121,15 @@ Item {
             anchors.centerIn: parent
             width: (root.artRadius + root.maxBarHeight) * 2 + 2
             height: width
-            active: root.isSubscribed
-            count: root.barCount
+            active: spectrumGate.active
+            continuous: root.continuous
+            count: root.continuous ? 96 : root.barCount
             mirrored: false
-            curve: 1.15
-            threshold: 0.0
-            gamma: 1.08
-            rise: 0.55
-            fall: 0.55
+            curve: root.continuous ? 1.25 : 1.15
+            threshold: root.continuous ? 0.03 : 0.0
+            gamma: root.continuous ? 1.25 : 1.08
+            rise: root.continuous ? 0.5 : 0.55
+            fall: root.continuous ? 0.3 : 0.55
             ringRadius: root.artRadius
             ringBarWidth: root.barWidth
             maxLength: root.maxBarHeight
@@ -160,7 +146,7 @@ Item {
             height: root.artRadius * 2
 
             property real borderWidth: 0
-            property real targetScale: (root.isMediaActive && MprisController.isPlaying) ? (1.0 + (root.bassLevel * 0.0135) + (root.kickLevel * 0.027)) : 0.95
+            property real targetScale: (root.isMediaActive && MprisController.isPlaying) ? (1.0 + (root.bassLevel * 0.0135) + (root.kickLevel * 0.027)) : 1.0
             property real targetBounceY: (root.isMediaActive && MprisController.isPlaying) ? -(root.kickLevel * root.artRadius * 0.02025) : 0
             property real targetTilt: (root.isMediaActive && MprisController.isPlaying) ? (root.bassLevel - 0.3) * 0.9 : 0
 
@@ -214,7 +200,7 @@ Item {
                     anchors.fill: parent
                     anchors.margins: discContainer.borderWidth
 
-                    Image {
+                    BoundedImage {
                         id: artImg
                         anchors.fill: parent
                         source: (root.isMediaActive && MprisController.artUrl) ? (MprisController.artUrl.startsWith("file://") || MprisController.artUrl.startsWith("http") ? MprisController.artUrl : "file://" + MprisController.artUrl) : ""

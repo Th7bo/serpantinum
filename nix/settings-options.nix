@@ -42,6 +42,7 @@ let
     opacity = mkOpt (types.ints.between 0 100) "Bar background opacity, 0-100.";
     style = mkOpt (types.enum [ "solid" "fill" "modular" ]) "Bar visual style.";
     distinctPills = mkOpt types.bool "Render distinct background pills for bar modules in solid/fill style.";
+    centerByEdges = mkOpt types.bool "Keep equal margins on both ends of the bar instead of centering by the middle module.";
     autohide = mkOpt types.bool "Auto-hide the bar when not in use.";
     autohideTimeout = mkOpt types.ints.positive "Milliseconds of inactivity before the bar autohides.";
     workspaceCount = mkOpt types.ints.positive "Number of workspace indicators to show.";
@@ -54,7 +55,7 @@ let
     visContinuous = mkOpt types.bool "Render the visualizer as a continuous wave instead of discrete bars.";
     sysmonStyle = mkOpt (types.enum [ "wave" "circle" "bars" ]) "System monitor display style.";
     sysmonStats = mkOpt (types.listOf (types.enum [ "cpu" "ram" "temp" "disk" ])) "Resource metrics shown by the system monitor.";
-    batStyle = mkOpt (types.enum [ "classic" "minimal" "text" ]) "Battery module display style.";
+    batStyle = mkOpt (types.enum [ "classic" "minimal" "text" "button" ]) "Battery module display style.";
     batShowPercent = mkOpt types.bool "Show the battery charge percentage.";
     batShowIcon = mkOpt types.bool "Show the battery icon.";
     wifiStyle = mkOpt (types.enum [ "button" "text" ]) "Network module display style.";
@@ -72,6 +73,7 @@ let
     mediaWidth = mkOpt (types.ints.between 80 400) "Width of the media module text area on top and bottom bars, in pixels.";
     mediaShowIcon = mkOpt types.bool "Show the album art or music icon in the media module.";
     mediaShowControls = mkOpt types.bool "Show the previous, play and next buttons in the media module.";
+    mediaHideWhenIdle = mkOpt types.bool "Hide the media module while nothing is playing.";
     groupColors = mkOpt (types.attrsOf types.str) "Hex accent colors keyed by grouped module pill ID, e.g. { g_sysmon = \"#ffb59c\"; }.";
     time = mkOption {
       type = freeform {
@@ -148,6 +150,7 @@ let
     matugen = mkOpt types.bool "Auto-generate colors from the current wallpaper.";
     mode = mkOpt types.str "Color scheme mode (dark or light).";
     schemeType = mkOpt types.str "Matugen scheme type.";
+    apps = mkOpt (types.listOf types.str) "Apps recolored with the shell palette (ids from the App theming page).";
     colors = mkOption {
       type = types.attrsOf types.str;
       default = { };

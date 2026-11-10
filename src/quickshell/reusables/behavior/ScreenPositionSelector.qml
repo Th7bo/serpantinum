@@ -101,10 +101,16 @@ Item {
         id: screenFrame
         anchors.fill: parent
         radius: root.cornerRadius
-        color: root.baseColor
-        border.width: 1
-        border.color: root.borderColor
+        color: screenGlass.active ? "transparent" : root.baseColor
         clip: true
+
+        GlassFill {
+            id: screenGlass
+            anchors.fill: parent
+            radius: parent.radius
+            tintColor: ThemeBackend.crust
+            tintAmount: 0.3
+        }
 
         property real activeGuideX: -1
         property real activeGuideY: -1
@@ -113,10 +119,16 @@ Item {
             id: barPreviewBox
             visible: root.showBar
             z: 5
-            color: ThemeBackend.surface0
-            border.width: 1
-            border.color: ThemeBackend.surface1
+            color: barGlass.active ? "transparent" : ThemeBackend.surface0
             radius: (root.rawBarSettings && root.rawBarSettings.style === "modular") ? root.s(3) : 0
+
+            GlassFill {
+                id: barGlass
+                anchors.fill: parent
+                radius: parent.radius
+                tintColor: ThemeBackend.surface0
+                tintAmount: 0.3
+            }
 
             x: {
                 if (root.barPosition === "right") return screenFrame.width - width;
@@ -379,7 +391,7 @@ Item {
             y: Math.max(0, Math.min(availH, availH * (root.verticalPosition / 100.0)))
 
             scale: frameMa.isDragging ? 1.04 : (frameMa.isOverBox ? 1.02 : 1.0)
-            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuint } }
 
             Item {
                 id: dragTargetContainer

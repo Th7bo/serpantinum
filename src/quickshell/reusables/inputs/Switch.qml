@@ -12,15 +12,16 @@ Item {
     property var options: ["x", "y"]
     property int currentIndex: 0
 
-    property color accentColor: "#89b4fa"
+    property color accentColor: ThemeBackend.blue
     property color baseColor: "#1affffff"
-    property color textColor: "#cdd6f4"
-    property color activeTextColor: "#11111b"
+    property color textColor: ThemeBackend.text
+    property color activeTextColor: ThemeBackend.crust
 
     property int cornerRadius: 8
     property int smallRadius: 2
     property int fontPixelSize: 11
     property int minFontPixelSize: 7
+    property real horizontalPadding: 10
     property bool enabled: true
     property string switchSound: "reusables/switch/sfx.wav"
 
@@ -30,7 +31,9 @@ Item {
 
     property real flashOpacity: 0.0
     property real popScale: 1.0
+    readonly property bool glassActive: baseGlass.active
 
+    property int itemsRevision: 0
     property real maxNeededWidth: 0
     property real totalNeededWidth: 0
     property var allocatedWidths: []
@@ -106,19 +109,30 @@ Item {
     onOptionsChanged: recalculateLayout()
     onFontPixelSizeChanged: recalculateLayout()
 
+    property real bgOpacity: 1.0
+    function withBgOpacity(c) { return Qt.rgba(c.r, c.g, c.b, c.a * root.bgOpacity); }
+
     Rectangle {
         id: bgShape
         anchors.fill: parent
         radius: root.cornerRadius
-        color: root.baseColor
-        clip: true
+        color: ThemeBackend.liquidGlass ? "transparent" : root.withBgOpacity(root.baseColor)
+        clip: !baseGlass.active
         opacity: root.enabled ? 1.0 : 0.5
 
-        Behavior on color { ColorAnimation { duration: 180 } }
-        Behavior on opacity { NumberAnimation { duration: 180 } }
+        Behavior on color { ColorAnimation { duration: 150 } }
+        Behavior on opacity { NumberAnimation { duration: 150 } }
 
         scale: root.popScale
         Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutQuint } }
+
+        GlassFill {
+            id: baseGlass
+            anchors.fill: parent
+            radius: root.cornerRadius
+            tintColor: root.baseColor
+            tintAmount: 0.22 * root.bgOpacity
+        }
 
         Rectangle {
             id: activeTabHighlight
@@ -131,12 +145,18 @@ Item {
                 prevIdx = curIdx;
             }
 
-            readonly property Item currentItem: (tabsRepeater && root.options && root.currentIndex >= 0 && root.currentIndex < tabsRepeater.count)
+            readonly property Item currentItem: (root.itemsRevision >= 0 && tabsRepeater && root.options && root.currentIndex >= 0 && root.currentIndex < tabsRepeater.count)
                 ? tabsRepeater.itemAt(root.currentIndex)
                 : null
 
             property real targetLeft: currentItem ? currentItem.x : 0
             property real targetRight: currentItem ? (currentItem.x + currentItem.width) : 0
+
+            readonly property bool isMoving: Math.abs(actualLeft - targetLeft) > 0.5 || Math.abs(actualRight - targetRight) > 0.5
+            property real lift: (baseGlass.active && isMoving) ? 1.0 : 0.0
+            Behavior on lift { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+            scale: 1.0 + 0.16 * lift
+            transformOrigin: Item.Center
 
             property real actualLeft: targetLeft
             property real actualRight: targetRight
@@ -148,21 +168,35 @@ Item {
             height: bgShape.height
             x: actualLeft
             width: Math.max(0, actualRight - actualLeft)
-            z: 0
+            z: highlightGlass.active ? 2 : 0
 
             topLeftRadius: (!I18n.rtl ? root.currentIndex === 0 : root.currentIndex === root.options.length - 1) ? root.cornerRadius : root.smallRadius
             bottomLeftRadius: (!I18n.rtl ? root.currentIndex === 0 : root.currentIndex === root.options.length - 1) ? root.cornerRadius : root.smallRadius
             topRightRadius: (!I18n.rtl ? root.currentIndex === root.options.length - 1 : root.currentIndex === 0) ? root.cornerRadius : root.smallRadius
             bottomRightRadius: (!I18n.rtl ? root.currentIndex === root.options.length - 1 : root.currentIndex === 0) ? root.cornerRadius : root.smallRadius
 
-            Behavior on topLeftRadius { NumberAnimation { duration: 180 } }
-            Behavior on bottomLeftRadius { NumberAnimation { duration: 180 } }
-            Behavior on topRightRadius { NumberAnimation { duration: 180 } }
-            Behavior on bottomRightRadius { NumberAnimation { duration: 180 } }
+            Behavior on topLeftRadius { NumberAnimation { duration: 150 } }
+            Behavior on bottomLeftRadius { NumberAnimation { duration: 150 } }
+            Behavior on topRightRadius { NumberAnimation { duration: 150 } }
+            Behavior on bottomRightRadius { NumberAnimation { duration: 150 } }
 
-            color: root.accentColor
+            color: ThemeBackend.liquidGlass ? "transparent" : root.accentColor
 
-            Behavior on color { ColorAnimation { duration: 180 } }
+            Behavior on color { ColorAnimation { duration: 150 } }
+
+            GlassFill {
+                id: highlightGlass
+                anchors.fill: parent
+                topLeftRadius: activeTabHighlight.topLeftRadius
+                topRightRadius: activeTabHighlight.topRightRadius
+                bottomLeftRadius: activeTabHighlight.bottomLeftRadius
+                bottomRightRadius: activeTabHighlight.bottomRightRadius
+                tintColor: root.accentColor
+                tintAmount: 0.4
+                shadow: 1
+                press: 0.35 + 0.65 * activeTabHighlight.lift
+                pulse: Math.min(1, root.flashOpacity * 2.5)
+            }
         }
 
         Row {
@@ -170,19 +204,21 @@ Item {
             layoutDirection: I18n.layoutDirection
             anchors.fill: parent
             spacing: 0
-            z: 1
+            z: highlightGlass.active ? 3 : 1
 
             Repeater {
                 id: tabsRepeater
                 model: root.options
                 onCountChanged: root.recalculateLayout()
+                onItemAdded: root.itemsRevision++
+                onItemRemoved: root.itemsRevision++
 
                 Item {
                     id: optionItem
                     required property string modelData
                     required property int index
 
-                    readonly property real fitWidth: Math.max(28, Math.ceil(optMetrics.width) + 10)
+                    readonly property real fitWidth: Math.max(28, Math.ceil(optMetrics.width) + root.horizontalPadding * 2)
 
                     width: (root.allocatedWidths && root.allocatedWidths.length > optionItem.index)
                         ? root.allocatedWidths[optionItem.index]
@@ -206,14 +242,28 @@ Item {
                         bottomLeftRadius: optionItem.index === 0 ? root.cornerRadius : root.smallRadius
                         topRightRadius: optionItem.index === root.options.length - 1 ? root.cornerRadius : root.smallRadius
                         bottomRightRadius: optionItem.index === root.options.length - 1 ? root.cornerRadius : root.smallRadius
-                        color: root.currentIndex === optionItem.index ? "transparent" : (optionMa.containsMouse ? "#1affffff" : "transparent")
-                        Behavior on color { ColorAnimation { duration: 200 } }
+                        color: (root.currentIndex === optionItem.index || optionGlass.active) ? "transparent" : (optionMa.containsMouse ? "#1affffff" : "transparent")
+                        Behavior on color { ColorAnimation { duration: 250 } }
+
+                        GlassFill {
+                            id: optionGlass
+                            anchors.fill: parent
+                            topLeftRadius: parent.topLeftRadius
+                            topRightRadius: parent.topRightRadius
+                            bottomLeftRadius: parent.bottomLeftRadius
+                            bottomRightRadius: parent.bottomRightRadius
+                            allowed: !!root && optionMa.containsMouse && root.enabled && root.currentIndex !== optionItem.index
+                            tintColor: root ? root.textColor : "transparent"
+                            tintAmount: 0.12
+                            tintStrength: 1.0
+                            press: optionMa.pressed ? 0.8 : 0.25
+                        }
                     }
 
                     Text {
                         anchors.fill: parent
-                        anchors.leftMargin: 4
-                        anchors.rightMargin: 4
+                        anchors.leftMargin: root.horizontalPadding
+                        anchors.rightMargin: root.horizontalPadding
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         text: optionItem.modelData
@@ -222,8 +272,8 @@ Item {
                         font.pixelSize: root.fontPixelSize
                         fontSizeMode: Text.Fit
                         minimumPixelSize: root.minFontPixelSize
-                        color: root.currentIndex === optionItem.index ? root.activeTextColor : root.textColor
-                        Behavior on color { ColorAnimation { duration: 200 } }
+                        color: (root.currentIndex === optionItem.index && !ThemeBackend.liquidGlass) ? root.activeTextColor : root.textColor
+                        Behavior on color { ColorAnimation { duration: 250 } }
                     }
 
                     MouseArea {
@@ -258,14 +308,15 @@ Item {
             radius: root.cornerRadius
             color: "#ffffff"
             opacity: root.flashOpacity
+            visible: !baseGlass.active
             z: 2
-            PropertyAnimation on opacity { id: btnFlashAnim; to: 0; duration: 350; easing.type: Easing.OutExpo }
+            PropertyAnimation on opacity { id: btnFlashAnim; to: 0; duration: 400; easing.type: Easing.OutExpo }
         }
     }
 
     SequentialAnimation {
         id: btnPopAnim
         NumberAnimation { target: root; property: "popScale"; to: 1.04; duration: 100; easing.type: Easing.OutQuad }
-        NumberAnimation { target: root; property: "popScale"; to: 1.0; duration: 350; easing.type: Easing.OutQuint }
+        NumberAnimation { target: root; property: "popScale"; to: 1.0; duration: 400; easing.type: Easing.OutQuint }
     }
 }

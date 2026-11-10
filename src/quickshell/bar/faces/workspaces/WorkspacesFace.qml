@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
-import Quickshell.Io
 import "../../../reusables"
 import "../../../"
 import "../../"
@@ -13,12 +12,13 @@ Item {
     property var module: null
     property var widget: root
 
+    property string orientation: module ? module.orientation : "horizontal"
+    readonly property bool isVertical: orientation === "vertical"
+
     readonly property bool isCompact: module ? module.isCompact : false
     readonly property var barWindow: module ? module.barWindow : null
     readonly property bool moduleActive: module ? module.moduleActive : true
 
-    readonly property bool isNiri: NiriState.isNiri
-    property bool isSway: false
     readonly property string myOutput: (barWindow && barWindow.screen && barWindow.screen.name) ? barWindow.screen.name : ""
     readonly property int niriActiveIndex: NiriState.activeIndexFor(myOutput)
     readonly property var niriOccupiedMap: NiriState.occupiedMap
@@ -27,28 +27,36 @@ Item {
     property bool niriSubscribed: false
 
     function syncNiriSubscription() {
-        let want = isNiri && moduleActive;
+        let want = Compositor.name === "niri" && moduleActive;
         if (want === niriSubscribed) return;
         niriSubscribed = want;
         if (want) NiriState.subscribe();
         else NiriState.unsubscribe();
     }
 
-    readonly property bool isMango: MangoState.isMango
     readonly property int mangoActiveIndex: MangoState.activeIndexFor(myOutput)
     readonly property var mangoOccupiedMap: MangoState.occupiedByOutput
     readonly property int mangoTagCount: MangoState.tagCount
     property bool mangoSubscribed: false
 
     function syncMangoSubscription() {
-        let want = isMango && moduleActive;
+        let want = Compositor.name === "mango" && moduleActive;
         if (want === mangoSubscribed) return;
         mangoSubscribed = want;
         if (want) MangoState.subscribe();
         else MangoState.unsubscribe();
     }
-    property int swayActiveIndex: 0
-    property var swayOccupiedMap: ({})
+    readonly property int swayActiveIndex: SwayState.activeIndexFor(myOutput)
+    readonly property var swayOccupiedMap: SwayState.occupiedMap
+    property bool swaySubscribed: false
+
+    function syncSwaySubscription() {
+        let want = Compositor.name === "sway" && moduleActive;
+        if (want === swaySubscribed) return;
+        swaySubscribed = want;
+        if (want) SwayState.subscribe();
+        else SwayState.unsubscribe();
+    }
 
     property int configRevision: 0
 
@@ -61,7 +69,10 @@ Item {
     property string workspacesStyle: {
         let dummy = configRevision;
         if (module && module.variant) return module.variant;
-        if (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.bar) {
+        if (isVertical) {
+            let bs = (typeof Config !== "undefined") ? Config.getSetting("bar", {}) : {};
+            if (bs && bs.workspacesStyle) return bs.workspacesStyle;
+        } else if (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.bar) {
             if (Config.rawSettings.bar.workspacesStyle) return Config.rawSettings.bar.workspacesStyle;
             if (Config.rawSettings.bar.workspaces && Config.rawSettings.bar.workspaces.style) return Config.rawSettings.bar.workspaces.style;
         }
@@ -84,19 +95,51 @@ Item {
         return 8;
     }
 
+    readonly property var workspacesSettings: {
+        let dummy = configRevision;
+        if (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.bar && Config.rawSettings.bar.workspaces)
+            return Config.rawSettings.bar.workspaces;
+        return {};
+    }
+
+    readonly property bool perMonitorNumbering: Compositor.name === "hyprland" && workspacesSettings.perMonitorNumbering === true
+    readonly property var monitorBlock: {
+        let m = workspacesSettings.monitors;
+        return (perMonitorNumbering && m && m[myOutput]) ? m[myOutput] : null;
+    }
+    readonly property int blockSize: {
+        let n = monitorBlock ? Math.floor(Number(monitorBlock.count)) : 0;
+        return n >= 1 ? n : 0;
+    }
+    readonly property int hyprBase: {
+        let n = monitorBlock ? Math.floor(Number(monitorBlock.first)) : 0;
+        return (blockSize > 0 && n >= 1) ? n - 1 : 0;
+    }
+
+    readonly property int hyprActiveId: {
+        if (Compositor.name !== "hyprland") return -1;
+        const mon = Hyprland.monitors.values.find(m => m.name === myOutput);
+        const ws = (mon && mon.activeWorkspace) ? mon.activeWorkspace : Hyprland.focusedWorkspace;
+        return ws ? ws.id : -1;
+    }
+
     property int workspaceCount: {
         let base = baseWorkspaceCount;
         let act = activeIndex;
         let count = base;
         if (act >= count) count = act + 1;
-        if (isNiri && niriMaxWorkspaceIndex >= count) count = niriMaxWorkspaceIndex + 1;
-        if (isMango && mangoTagCount > 0) count = Math.min(count, mangoTagCount);
+        if (Compositor.name === "niri" && niriMaxWorkspaceIndex >= count) count = niriMaxWorkspaceIndex + 1;
+        if (Compositor.name === "mango" && mangoTagCount > 0) count = Math.min(count, mangoTagCount);
+        if (blockSize > 0) count = Math.min(count, blockSize);
         return Math.max(2, count);
     }
 
     property bool hideEmptyWorkspaces: {
         let dummy = configRevision;
-        if (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.bar) {
+        if (isVertical) {
+            let bs = (typeof Config !== "undefined") ? Config.getSetting("bar", {}) : {};
+            if (bs && bs.hideEmptyWorkspaces !== undefined) return Boolean(bs.hideEmptyWorkspaces);
+        } else if (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.bar) {
             if (Config.rawSettings.bar.hideEmptyWorkspaces !== undefined)
                 return Boolean(Config.rawSettings.bar.hideEmptyWorkspaces);
         }
@@ -150,21 +193,21 @@ Item {
     }
 
     function s(val) {
-        if (barWindow && typeof barWindow.s === "function") return barWindow.s(val);
+        if (barWindow && typeof barWindow.s === "function") return barWindow.cs(val);
         if (typeof Scaler !== "undefined" && typeof Scaler.s === "function") return Math.round(Scaler.s(val));
         return val;
     }
 
     function wsForId(id) {
-        if (isNiri || isSway || isMango) return null;
+        if (Compositor.name !== "hyprland") return null;
         return Hyprland.workspaces.values.find(w => w.id === id) ?? null;
     }
 
     function isOccupied(index) {
-        if (isNiri) return !!(niriExistingMap[index] && niriOccupiedMap[index]);
-        if (isSway) return !!swayOccupiedMap[index];
-        if (isMango) return !!(mangoOccupiedMap && MangoState.isOccupied(myOutput, index));
-        let ws = wsForId(index + 1);
+        if (Compositor.name === "niri") return !!(niriExistingMap[index] && niriOccupiedMap[index]);
+        if (Compositor.name === "sway") return !!swayOccupiedMap[index];
+        if (Compositor.name === "mango") return !!(mangoOccupiedMap && MangoState.isOccupied(myOutput, index));
+        let ws = wsForId(hyprBase + index + 1);
         return ws !== null && ws.toplevels && ws.toplevels.values && ws.toplevels.values.length > 0;
     }
 
@@ -174,121 +217,61 @@ Item {
     }
 
     function focusWorkspace(index) {
-        let wsId = index + 1;
-        if (isNiri) {
+        let wsId = (Compositor.name !== "hyprland" ? 0 : hyprBase) + index + 1;
+        if (Compositor.name === "niri") {
             Quickshell.execDetached(["niri", "msg", "action", "focus-workspace", wsId.toString()]);
-        } else if (isSway) {
-            swayActiveIndex = index;
-            Quickshell.execDetached(["swaymsg", "workspace", "number", wsId.toString()]);
-        } else if (isMango) {
+        } else if (Compositor.name === "sway") {
+            SwayState.focusWorkspace(index);
+        } else if (Compositor.name === "mango") {
             Quickshell.execDetached(["mmsg", "dispatch", "view," + wsId]);
-        } else {
+        } else if (Compositor.name === "hyprland") {
             Hyprland.dispatch("hl.dsp.focus({ workspace = " + wsId + " })");
         }
     }
 
     property int activeIndex: {
         let idx = -1;
-        if (isNiri) {
+        if (Compositor.name === "niri") {
             idx = (niriExistingMap[niriActiveIndex] || Object.keys(niriExistingMap).length === 0) ? niriActiveIndex : -1;
-        } else if (isSway) {
+        } else if (Compositor.name === "sway") {
             idx = swayActiveIndex;
-        } else if (isMango) {
+        } else if (Compositor.name === "mango") {
             idx = mangoActiveIndex;
         } else {
-            const fw = Hyprland.focusedWorkspace;
-            if (!fw) return -1;
-            idx = fw.id - 1;
+            if (hyprActiveId < 0) return -1;
+            idx = hyprActiveId - 1 - hyprBase;
+            if (blockSize > 0 && idx >= blockSize) idx = -1;
         }
         return idx >= 0 ? idx : -1;
     }
 
     Component.onCompleted: {
-        let de = SystemInfo.desktopEnv ? SystemInfo.desktopEnv.toLowerCase() : "";
-        root.isSway = de.indexOf("sway") !== -1;
         syncNiriSubscription();
         syncMangoSubscription();
-        if (root.isSway && root.moduleActive) {
-            swayPoller.running = true;
-        }
+        syncSwaySubscription();
         syncModel();
     }
 
     Component.onDestruction: {
         if (niriSubscribed) NiriState.unsubscribe();
         if (mangoSubscribed) MangoState.unsubscribe();
+        if (swaySubscribed) SwayState.unsubscribe();
     }
 
     onModuleActiveChanged: {
         syncNiriSubscription();
         syncMangoSubscription();
-        if (!moduleActive) {
-            if (isSway) {
-                swayPoller.running = false;
-                swayWaiter.running = false;
-            }
-        } else {
-            if (isSway) {
-                swayPoller.running = false;
-                swayPoller.running = true;
-            }
-        }
+        syncSwaySubscription();
     }
 
-    Process {
-        id: swayPoller
-        running: false
-        command: [
-            "bash",
-            "-c",
-            "swaymsg -t get_workspaces -r 2>/dev/null || echo '[]'"
-        ]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    let wsList = JSON.parse(this.text) || [];
-                    let occ = {};
-                    let activeIdx = 0;
-                    for (let i = 0; i < wsList.length; i++) {
-                        let w = wsList[i];
-                        let num = (w.num !== undefined && w.num > 0) ? w.num : parseInt(w.name);
-                        let idx = (!isNaN(num) && num > 0) ? num - 1 : i;
-                        if (w.focused) {
-                            activeIdx = idx;
-                        }
-                        occ[idx] = true;
-                    }
-                    root.swayActiveIndex = activeIdx;
-                    root.swayOccupiedMap = occ;
-                } catch (e) {}
-
-                swayWaiter.running = false;
-                if (root.moduleActive && root.isSway) {
-                    swayWaiter.running = true;
-                }
-            }
-        }
+    Connections {
+        target: Compositor
+        function onNameChanged() { root.syncSwaySubscription(); }
     }
 
-    Process {
-        id: swayWaiter
-        running: false
-        command: [
-            "bash",
-            "-c",
-            "swaymsg -t subscribe -m '[\"workspace\", \"window\"]' 2>/dev/null | grep -m 1 -E '\"change\"'"
-        ]
-        onExited: {
-            swayPoller.running = false;
-            if (root.moduleActive && root.isSway) {
-                swayPoller.running = true;
-            }
-        }
-    }
-
-    property real targetWidth: (moduleActive && workspaceCount > 0 && faceLoader.item) ? faceLoader.item.implicitWidth + s(isCompact ? 18 : 22) : 0
-    implicitWidth: targetWidth
-    implicitHeight: parent ? parent.height : 0
+    property real targetLength: (moduleActive && workspaceCount > 0 && faceLoader.item) ? (isVertical ? faceLoader.item.implicitHeight : faceLoader.item.implicitWidth) + s(isCompact ? 18 : 22) : 0
+    implicitWidth: isVertical ? (parent ? parent.width : 0) : targetLength
+    implicitHeight: isVertical ? targetLength : (parent ? parent.height : 0)
 
     property real wheelAccumulator: 0
     Timer {
@@ -312,7 +295,7 @@ Item {
                 root.wheelAccumulator = root.wheelAccumulator % threshold;
 
                 if (root.workspaceCount > 1) {
-                    if (root.isNiri) {
+                    if (Compositor.name === "niri") {
                         if (steps > 0) {
                             Quickshell.execDetached(["niri", "msg", "action", "focus-workspace-up"]);
                         } else if (steps < 0) {
@@ -342,14 +325,23 @@ Item {
     Loader {
         id: faceLoader
         z: 2
-        anchors.left: parent.left
-        anchors.leftMargin: s(isCompact ? 18 : 22) / 2
-        anchors.verticalCenter: parent.verticalCenter
-        source: BarModuleRegistry.variantFaceFile("workspaces", root.workspacesStyle, false)
+        anchors.left: root.isVertical ? undefined : parent.left
+        anchors.leftMargin: root.isVertical ? 0 : s(isCompact ? 18 : 22) / 2
+        anchors.verticalCenter: root.isVertical ? undefined : parent.verticalCenter
+        anchors.top: root.isVertical ? parent.top : undefined
+        anchors.topMargin: root.isVertical ? s(isCompact ? 18 : 22) / 2 : 0
+        anchors.horizontalCenter: root.isVertical ? parent.horizontalCenter : undefined
+        source: BarModuleRegistry.variantFaceFile("workspaces", root.workspacesStyle)
         onLoaded: {
             attachModel();
-            Qt.callLater(attachModel);
+            attachTimer.restart();
         }
+    }
+
+    Timer {
+        id: attachTimer
+        interval: 0
+        onTriggered: root.attachModel()
     }
 
     Binding {

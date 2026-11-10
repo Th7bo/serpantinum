@@ -125,7 +125,7 @@ Item {
     function getColorForLevel(lvl) {
         let accent = (typeof ThemeBackend !== "undefined" && ThemeBackend.green) ? ThemeBackend.green : Qt.color("#a6e3a1");
         let baseSurface = (typeof ThemeBackend !== "undefined" && ThemeBackend.surface1) ? ThemeBackend.surface1 : Qt.color("#313244");
-        if (lvl <= 0) return baseSurface;
+        if (lvl <= 0) return Qt.alpha(baseSurface, ThemeBackend.elementOpacity);
         if (lvl === 1) return Qt.rgba(accent.r, accent.g, accent.b, 0.35);
         if (lvl === 2) return Qt.rgba(accent.r, accent.g, accent.b, 0.58);
         if (lvl === 3) return Qt.rgba(accent.r, accent.g, accent.b, 0.80);
@@ -239,9 +239,7 @@ Item {
     }
 
     function saveUsername(user) {
-        userSaveProcess.pendingUser = user;
-        userSaveProcess.running = false;
-        userSaveProcess.running = true;
+        userFile.setText(user);
     }
 
     function loadUser(user, forceFetch) {
@@ -262,8 +260,9 @@ Item {
     function readCacheForYear(user, year) {
         cacheReadProcess.targetUser = user;
         cacheReadProcess.targetYear = year;
-        cacheReadProcess.running = false;
-        cacheReadProcess.running = true;
+        let cacheFile = root.cacheFilePath(user, year);
+        if (cacheReadProcess.path === cacheFile) cacheReadProcess.reload();
+        else cacheReadProcess.path = cacheFile;
     }
 
     function saveCachedData(user, year, list, totalVal) {
@@ -274,11 +273,8 @@ Item {
                 total: totalVal,
                 contributions: list
             };
-            cacheSaveProcess.targetUser = user;
-            cacheSaveProcess.targetYear = year;
-            cacheSaveProcess.jsonData = JSON.stringify(obj);
-            cacheSaveProcess.running = false;
-            cacheSaveProcess.running = true;
+            cacheSaveProcess.path = root.cacheFilePath(user, year);
+            cacheSaveProcess.setText(JSON.stringify(obj));
         } catch(e) {}
     }
 
@@ -390,92 +386,70 @@ Item {
         xhr.send();
     }
 
-    Process {
-        id: userReadProcess
-        command: [
-            "bash",
-            "-c",
-            'FILE="${XDG_CACHE_HOME:-$HOME/.cache}/serpantinum/github/user.txt"; if [ -f "$FILE" ]; then cat "$FILE"; fi'
-        ]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let u = this.text.trim();
-                if (u !== "") {
-                    root.loadUser(u, false);
-                } else if (typeof SystemInfo !== "undefined" && SystemInfo.username !== "") {
-                    root.loadUser(SystemInfo.username, false);
-                }
+    FileView {
+        id: userFile
+        printErrors: false
+        property bool restored: false
+
+        function restore(raw) {
+            if (restored) return;
+            restored = true;
+            let u = raw.trim();
+            if (u !== "") {
+                root.loadUser(u, false);
+            } else if (typeof SystemInfo !== "undefined" && SystemInfo.username !== "") {
+                root.loadUser(SystemInfo.username, false);
             }
         }
+
+        onLoaded: restore(text())
+        onLoadFailed: restore("")
     }
 
-    Process {
-        id: userSaveProcess
-        property string pendingUser: ""
-        command: [
-            "bash",
-            "-c",
-            'DIR="${XDG_CACHE_HOME:-$HOME/.cache}/serpantinum/github"; mkdir -p "$DIR"; printf "%s" "$1" > "$DIR/user.txt"',
-            "--",
-            pendingUser
-        ]
-        running: false
-    }
-
-    Process {
+    FileView {
         id: cacheReadProcess
+        printErrors: false
         property string targetUser: ""
         property int targetYear: root.currentYear
-        command: [
-            "bash",
-            "-c",
-            'FILE="${XDG_CACHE_HOME:-$HOME/.cache}/serpantinum/github/${1}_${2}.json"; if [ -f "$FILE" ] && [ -s "$FILE" ]; then cat "$FILE"; else echo "CACHE_MISS"; fi',
-            "--",
-            targetUser,
-            targetYear.toString()
-        ]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let content = this.text.trim();
-                let u = cacheReadProcess.targetUser;
-                let yr = cacheReadProcess.targetYear;
-                if (u !== root.username || yr !== root.selectedYear) return;
 
-                if (content !== "" && content !== "CACHE_MISS") {
-                    try {
-                        let parsed = JSON.parse(content);
-                        if (parsed && parsed.contributions && parsed.contributions.length > 0) {
-                            root.processContributions(parsed.contributions, parsed.total);
-                            return;
-                        }
-                    } catch(e) {}
-                }
-                root.fetchContributions(u, yr);
+        function handleRead(raw) {
+            let content = raw.trim();
+            let u = cacheReadProcess.targetUser;
+            let yr = cacheReadProcess.targetYear;
+            if (u !== root.username || yr !== root.selectedYear) return;
+
+            if (content !== "") {
+                try {
+                    let parsed = JSON.parse(content);
+                    if (parsed && parsed.contributions && parsed.contributions.length > 0) {
+                        root.processContributions(parsed.contributions, parsed.total);
+                        return;
+                    }
+                } catch(e) {}
             }
+            root.fetchContributions(u, yr);
         }
+
+        onLoaded: handleRead(text())
+        onLoadFailed: handleRead("")
     }
 
-    Process {
+    FileView {
         id: cacheSaveProcess
-        property string targetUser: ""
-        property int targetYear: root.currentYear
-        property string jsonData: ""
-        command: [
-            "bash",
-            "-c",
-            'DIR="${XDG_CACHE_HOME:-$HOME/.cache}/serpantinum/github"; mkdir -p "$DIR"; printf "%s" "$3" > "$DIR/${1}_${2}.json"',
-            "--",
-            targetUser,
-            targetYear.toString(),
-            jsonData
-        ]
-        running: false
+        printErrors: false
+        preload: false
+    }
+
+    function cacheDirPath() {
+        return (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/serpantinum/github";
+    }
+
+    function cacheFilePath(user, year) {
+        return root.cacheDirPath() + "/" + String(user).replace(/[^A-Za-z0-9_.-]/g, "_") + "_" + year + ".json";
     }
 
     Component.onCompleted: {
-        userReadProcess.running = true;
+        userFile.path = root.cacheDirPath() + "/user.txt";
     }
 
     TextMetrics {
@@ -488,9 +462,15 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: ThemeBackend.surface0
+        color: Qt.alpha(ThemeBackend.surface0, ThemeBackend.elementOpacity)
         radius: ThemeBackend.clampedBorderRadius !== undefined ? ThemeBackend.clampedBorderRadius : ThemeBackend.borderRadius
         clip: true
+
+        WallpaperBlur {
+            z: -1
+            anchors.fill: parent
+            radius: parent.radius
+        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -510,6 +490,7 @@ Item {
                     buttonIcon: root.isEditingUser ? "󰄬" : "󰏫"
                     iconFontSize: Scaler.s(14)
                     accentColor: root.isEditingUser ? ThemeBackend.green : ThemeBackend.surface1
+                    bgOpacity: ThemeBackend.elementOpacity
                     textColor: root.isEditingUser ? ThemeBackend.surface0 : ThemeBackend.subtext0
 
                     onClicked: {
@@ -555,6 +536,7 @@ Item {
                         horizontalPadding: Scaler.s(8)
                         textFontSize: Scaler.s(11)
                         accentColor: ThemeBackend.surface1
+                        bgOpacity: ThemeBackend.elementOpacity
                         textColor: ThemeBackend.text
                         buttonText: root.username !== "" ? root.username : I18n.t("widgets.github.set_user")
 
@@ -584,6 +566,7 @@ Item {
                         horizontalPadding: Scaler.s(8)
                         cornerRadius: ThemeBackend.borderRadius > 0 ? Math.min(ThemeBackend.borderRadius, Scaler.s(6)) : Scaler.s(6)
                         baseColor: ThemeBackend.surface1
+                        bgOpacity: ThemeBackend.elementOpacity
                         textColor: ThemeBackend.text
                         subTextColor: ThemeBackend.subtext0
                         accentColor: ThemeBackend.green
@@ -614,8 +597,6 @@ Item {
                         anchors.fill: parent
                         radius: ThemeBackend.borderRadius > 0 ? Math.min(ThemeBackend.borderRadius, Scaler.s(6)) : Scaler.s(6)
                         color: "transparent"
-                        border.width: 1.5
-                        border.color: ThemeBackend.surface1
                         visible: root.isEditingUser
                         z: 10
                     }
@@ -633,8 +614,8 @@ Item {
                     value: root.selectedYear
                     fontPixelSize: Scaler.s(11)
                     iconFontSize: Scaler.s(12)
-                    baseColor: ThemeBackend.surface1
-                    buttonColor: ThemeBackend.surface2 !== undefined ? ThemeBackend.surface2 : Qt.lighter(ThemeBackend.surface1, 1.1)
+                    baseColor: Qt.alpha(ThemeBackend.surface1, ThemeBackend.elementOpacity)
+                    buttonColor: Qt.alpha(ThemeBackend.surface2 !== undefined ? ThemeBackend.surface2 : Qt.lighter(ThemeBackend.surface1, 1.1), ThemeBackend.elementOpacity)
                     textColor: ThemeBackend.text
                     accentColor: ThemeBackend.green
                     buttonTextColor: ThemeBackend.subtext0
@@ -657,6 +638,7 @@ Item {
                     horizontalPadding: Scaler.s(10)
                     textFontSize: Scaler.s(11)
                     accentColor: ThemeBackend.surface1
+                    bgOpacity: ThemeBackend.elementOpacity
                     textColor: root.hasError ? ThemeBackend.red : (root.loading ? ThemeBackend.subtext0 : ThemeBackend.text)
                     buttonText: {
                         if (root.loading) return "...";
@@ -685,6 +667,7 @@ Item {
                     horizontalPadding: Scaler.s(8)
                     textFontSize: Scaler.s(10)
                     accentColor: ThemeBackend.surface1
+                    bgOpacity: ThemeBackend.elementOpacity
                     textColor: ThemeBackend.text
                     buttonText: {
                         if (root.selectedDay) {
@@ -708,6 +691,7 @@ Item {
                     buttonIcon: "󰑓"
                     iconFontSize: Scaler.s(14)
                     accentColor: ThemeBackend.surface1
+                    bgOpacity: ThemeBackend.elementOpacity
                     textColor: ThemeBackend.subtext0
 
                     onClicked: {
@@ -787,7 +771,7 @@ Item {
                                             height: root.cellSize
                                             radius: Math.max(2, Math.min(Scaler.s(4), Math.round(root.cellSize * 0.22)))
                                             color: cellBox.dayObj === null ? "transparent" : (tileMa.pressed ? Qt.darker(cellBox.baseColor, 1.12) : (cellBox.isHovered ? Qt.lighter(cellBox.baseColor, 1.12) : cellBox.baseColor))
-                                            Behavior on color { ColorAnimation { duration: 180 } }
+                                            Behavior on color { ColorAnimation { duration: 150 } }
 
                                             scale: (cellBox.dayObj === null ? 1.0 : (tileMa.pressed ? 1.08 : (cellBox.isHovered ? 1.04 : 1.0))) * cellBox.popScale
                                             Behavior on scale {
@@ -810,7 +794,7 @@ Item {
                                                     target: cellBox
                                                     property: "popScale"
                                                     to: 1.0
-                                                    duration: 420
+                                                    duration: 400
                                                     easing.type: Easing.OutQuint
                                                 }
                                             }
@@ -875,7 +859,7 @@ Item {
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        font.family: "Iosevka Nerd Font"
+                        font.family: ThemeBackend.iconFont
                         font.pixelSize: Scaler.s(22)
                         color: root.hasError ? ThemeBackend.red : ThemeBackend.subtext0
                         text: root.hasError ? "󰅚" : (root.loading ? "󰑓" : "󰊤")

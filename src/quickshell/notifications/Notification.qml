@@ -22,6 +22,8 @@ Rectangle {
     }
 
     property bool showIcon: true
+    readonly property color mutedText: ThemeBackend.liquidGlass ? ThemeBackend.text : ThemeBackend.subtext1
+    readonly property color bodyText: ThemeBackend.liquidGlass ? ThemeBackend.text : ThemeBackend.subtext0
     property int urgency: model && typeof model.urgency !== "undefined" ? model.urgency : 1
 
     readonly property bool isDragging: cardHover.draggingH || cardHover.draggingV
@@ -36,6 +38,7 @@ Rectangle {
     readonly property bool canExpand: fullBody.length > 50 || fullBody.indexOf("\n") !== -1 || (delegateWrapper && delegateWrapper.actionArray && delegateWrapper.actionArray.length > 0)
 
     property alias bgContent: bgContainer.data
+    property bool iconFullBleed: false
     property alias iconArea: iconContainer.data
     property alias headerArea: headerContentContainer.data
     default property alias faceContent: innerLayout.data
@@ -91,13 +94,13 @@ Rectangle {
         }
 
         if (diffSec < 60) {
-            timeText = "Just now";
+            timeText = I18n.t("datetime.just_now");
             return;
         }
 
         let diffMin = Math.floor(diffSec / 60);
         if (diffMin < 60) {
-            timeText = diffMin + " min ago";
+            timeText = I18n.t("datetime.minutes_ago", { mins: diffMin });
             return;
         }
 
@@ -116,7 +119,7 @@ Rectangle {
         if (isSameDay) {
             timeText = timePart;
         } else if (isYesterday) {
-            timeText = "Yesterday " + timePart;
+            timeText = I18n.t("datetime.yesterday", { time: timePart });
         } else if (diffDays < 7) {
             let dayName = Qt.formatDateTime(notifDate, "dddd");
             timeText = dayName + " " + timePart;
@@ -132,15 +135,29 @@ Rectangle {
 
     Timer {
         interval: 10000
-        running: true
+        running: typeRoot.visible && (!typeRoot.Window.window || typeRoot.Window.window.visible)
         repeat: true
+        triggeredOnStart: true
         onTriggered: updateTimeText()
     }
 
     onTimestampChanged: updateTimeText()
+    property real arrive: 0.0
+
+    NumberAnimation {
+        id: arriveAnim
+        target: typeRoot
+        property: "arrive"
+        from: 1.0
+        to: 0.0
+        duration: 900
+        easing.type: Easing.OutCubic
+    }
+
     Component.onCompleted: {
         updateTimeText();
         Qt.callLater(playPopupSound);
+        if (ThemeBackend.liquidGlass) arriveAnim.start();
     }
 
     function s(val) { return root && typeof root.s === "function" ? root.s(val) : val; }
@@ -182,7 +199,7 @@ Rectangle {
         property: "dragX"
         from: typeRoot.dragX
         to: 0
-        duration: 200
+        duration: 250
         easing.type: Easing.OutCubic
     }
 
@@ -192,7 +209,7 @@ Rectangle {
         property: "dragY"
         from: typeRoot.dragY
         to: 0
-        duration: 200
+        duration: 250
         easing.type: Easing.OutCubic
     }
 
@@ -201,7 +218,7 @@ Rectangle {
         target: typeRoot
         property: "dragX"
         from: typeRoot.dragX
-        duration: 200
+        duration: 250
         easing.type: Easing.OutQuad
         onFinished: {
             doClose();
@@ -355,6 +372,7 @@ Rectangle {
         anchors.bottomMargin: -(s(1.5) + Math.max(0, typeRoot.dragY * 0.4))
         radius: visualItem.radius
         color: Qt.rgba(0, 0, 0, 0.12 + Math.min(0.06, Math.max(0, typeRoot.dragY / s(3.5)) * 0.06))
+        visible: !ThemeBackend.glassActive
         scale: visualItem.scale
         opacity: visualItem.opacity
         transform: Translate {
@@ -408,9 +426,18 @@ Rectangle {
         implicitHeight: cardContent.implicitHeight + s(20)
 
         property color baseColor: typeRoot.readState === false ? Qt.lighter(ThemeBackend.surface1, 1.05) : ThemeBackend.surface1
-        color: (cardHover.pressed && !cardHover.draggingH && !cardHover.draggingV) ? Qt.darker(baseColor, 1.1) : (cardHover.containsMouse && !cardHover.draggingH && !cardHover.draggingV ? Qt.lighter(baseColor, 1.05) : baseColor)
+        color: ThemeBackend.faded((cardHover.pressed && !cardHover.draggingH && !cardHover.draggingV) ? Qt.darker(baseColor, 1.1) : (cardHover.containsMouse && !cardHover.draggingH && !cardHover.draggingV ? Qt.lighter(baseColor, 1.05) : baseColor))
 
         scale: (cardHover.pressed && !cardHover.draggingH && !cardHover.draggingV) ? 0.98 : 1.0
+
+        WallpaperBlur {
+            z: -1
+            anchors.fill: parent
+            radius: visualItem.radius
+            standalone: true
+            screenOverride: (typeRoot.root && typeRoot.root.glassScreen) ? typeRoot.root.glassScreen : null
+            useSnapshot: !!(typeRoot.root && typeRoot.root.glassScreen)
+        }
 
         Behavior on implicitHeight {
             enabled: !cardHover.draggingV
@@ -419,10 +446,19 @@ Rectangle {
         Behavior on color { enabled: !cardHover.draggingH && !cardHover.draggingV; ColorAnimation { duration: 150 } }
         Behavior on scale { enabled: !cardHover.draggingH && !cardHover.draggingV; NumberAnimation { duration: 150; easing.type: Easing.OutQuint } }
 
-        transform: Translate {
-            x: typeRoot.dragX
-            y: typeRoot.dragY
-        }
+        readonly property real dragFraction: Math.min(1.0, Math.abs(typeRoot.dragX) / Math.max(1, typeRoot.width * 0.75))
+        transform: [
+            Scale {
+                origin.x: visualItem.width / 2
+                origin.y: visualItem.height / 2
+                xScale: ThemeBackend.liquidGlass ? 1.0 - 0.1 * visualItem.dragFraction : 1.0
+                yScale: ThemeBackend.liquidGlass ? 1.0 + 0.03 * visualItem.dragFraction : 1.0
+            },
+            Translate {
+                x: typeRoot.dragX
+                y: typeRoot.dragY
+            }
+        ]
         opacity: Math.max(0.0, 1.0 - (Math.abs(typeRoot.dragX) / (typeRoot.width * 0.75)))
 
         Item {
@@ -547,21 +583,32 @@ Rectangle {
                         anchors.bottomMargin: -s(1.5)
                         radius: parent.boxRadius
                         color: Qt.rgba(0, 0, 0, 0.12)
+                        visible: !ThemeBackend.glassActive
                     }
 
                     Rectangle {
                         anchors.fill: parent
                         radius: parent.boxRadius
-                        color: typeRoot.urgency === 2 ? Qt.tint(ThemeBackend.surface2, Qt.rgba(urgencyGlow.deepRed.r, urgencyGlow.deepRed.g, urgencyGlow.deepRed.b, 0.12)) : ThemeBackend.surface2
+                        color: iconBoxGlass.active ? "transparent" : ThemeBackend.faded(typeRoot.urgency === 2 ? Qt.tint(ThemeBackend.surface2, Qt.rgba(urgencyGlow.deepRed.r, urgencyGlow.deepRed.g, urgencyGlow.deepRed.b, 0.12)) : ThemeBackend.surface2)
 
-                        Behavior on color { ColorAnimation { duration: 200 } }
+                        Behavior on color { ColorAnimation { duration: 250 } }
+
+                        GlassFill {
+                            id: iconBoxGlass
+                            anchors.fill: parent
+                            radius: parent.radius
+                            tintColor: typeRoot.urgency === 2 ? ThemeBackend.red : ThemeBackend.surface2
+                            tintAmount: typeRoot.urgency === 2 ? 0.3 : 0.35
+                            tintStrength: 1.0
+                            pulse: typeRoot.arrive
+                        }
                     }
 
                     Rectangle {
                         id: iconContainer
                         anchors.fill: parent
-                        anchors.margins: parent.boxPadding
-                        radius: Math.max(0, parent.boxRadius - parent.boxPadding)
+                        anchors.margins: typeRoot.iconFullBleed ? 0 : parent.boxPadding
+                        radius: typeRoot.iconFullBleed ? parent.boxRadius : Math.max(0, parent.boxRadius - parent.boxPadding)
                         color: "transparent"
                         clip: true
                     }
@@ -619,7 +666,7 @@ Rectangle {
                             text: "•"
                             font.family: ThemeBackend.fontFamily
                             font.pixelSize: s(10)
-                            color: ThemeBackend.subtext1
+                            color: typeRoot.mutedText
                             opacity: (!typeRoot.timeOnNextRowCollapsed) ? Math.max(0.0, 1.0 - typeRoot.expandProgress * 3.0) : 0.0
                             visible: opacity > 0.0
                         }
@@ -630,7 +677,7 @@ Rectangle {
                             text: typeRoot.timeText
                             font.family: ThemeBackend.fontFamily
                             font.pixelSize: s(11)
-                            color: ThemeBackend.subtext1
+                            color: typeRoot.mutedText
 
                             readonly property real startX: I18n.rtl ? (topHeaderRow.width - collapsedSummary.width - s(12) - dotLabel.implicitWidth - implicitWidth) : (collapsedSummary.width + s(12) + dotLabel.implicitWidth)
                             readonly property real endX: I18n.rtl ? typeRoot.expandBtnSpace : Math.max(0, topHeaderRow.width - typeRoot.expandBtnSpace - implicitWidth)
@@ -679,7 +726,7 @@ Rectangle {
                                     text: "•"
                                     font.family: ThemeBackend.fontFamily
                                     font.pixelSize: s(10)
-                                    color: ThemeBackend.subtext1
+                                    color: typeRoot.mutedText
                                     anchors.verticalCenter: parent.verticalCenter
                                     visible: typeRoot.summaryLastWord !== ""
                                 }
@@ -688,7 +735,7 @@ Rectangle {
                                     text: typeRoot.timeText
                                     font.family: ThemeBackend.fontFamily
                                     font.pixelSize: s(11)
-                                    color: ThemeBackend.subtext1
+                                    color: typeRoot.mutedText
                                     anchors.verticalCenter: parent.verticalCenter
                                     visible: typeRoot.timeText !== ""
                                 }
@@ -703,7 +750,7 @@ Rectangle {
                             size: s(28)
                             cornerRadius: s(7)
                             accentColor: ThemeBackend.surface2
-                            iconColor: isHoveredOrHighlighted ? ThemeBackend.text : ThemeBackend.subtext1
+                            iconColor: isHoveredOrHighlighted ? ThemeBackend.text : typeRoot.mutedText
                             autoToggle: false
                             flipped: typeRoot.expandProgress > 0.5
                             onClicked: typeRoot.expanded = !typeRoot.expanded
@@ -756,7 +803,7 @@ Rectangle {
                             font.family: ThemeBackend.fontFamily
                             font.weight: Font.Normal
                             font.pixelSize: typeRoot.isPopup ? s(12) : s(11)
-                            color: ThemeBackend.subtext0
+                            color: typeRoot.bodyText
                             elide: Text.ElideRight
                             maximumLineCount: 1
                             opacity: Math.max(0.0, 1.0 - typeRoot.expandProgress * 2.5)
@@ -773,7 +820,7 @@ Rectangle {
                             font.family: ThemeBackend.fontFamily
                             font.weight: Font.Normal
                             font.pixelSize: typeRoot.isPopup ? s(12) : s(11)
-                            color: ThemeBackend.subtext0
+                            color: typeRoot.bodyText
                             wrapMode: Text.Wrap
                             textFormat: Text.StyledText
                             opacity: Math.max(0.0, (typeRoot.expandProgress - 0.2) / 0.8)
@@ -832,7 +879,7 @@ Rectangle {
                                     buttonIcon: typeRoot.getActionIcon(modelData.id, modelData.text)
                                     iconFontSize: s(11)
                                     accentColor: isPrimary ? typeRoot.accentColor : ThemeBackend.surface2
-                                    textColor: isPrimary ? ThemeBackend.crust : ThemeBackend.subtext1
+                                    textColor: isPrimary ? ThemeBackend.crust : typeRoot.mutedText
                                     onTriggered: {
                                         var n = delegateWrapper ? delegateWrapper.realNotif : null;
                                         if (n && n.actions) {

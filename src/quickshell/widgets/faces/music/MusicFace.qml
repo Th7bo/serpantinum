@@ -18,7 +18,7 @@ Item {
     property real maxWidth: 800
     property real maxHeight: 300
     property real minAspect: 2.4
-    property real maxAspect: 3.2
+    property real maxAspect: 4.4
 
     property real dynMargin: Math.max(6, Math.min(24, root.height * 0.12))
     property real dynSpacing: Math.max(4, Math.min(20, root.height * 0.08))
@@ -41,10 +41,10 @@ Item {
     function updateSubscription() {
         if (isVisVisible && !isSubscribed) {
             isSubscribed = true;
-            Cava.registerConsumer();
+            Spectrum.registerConsumer();
         } else if (!isVisVisible && isSubscribed) {
             isSubscribed = false;
-            Cava.unregisterConsumer();
+            Spectrum.unregisterConsumer();
         }
     }
 
@@ -70,7 +70,7 @@ Item {
     Component.onDestruction: {
         if (isSubscribed) {
             isSubscribed = false;
-            Cava.unregisterConsumer();
+            Spectrum.unregisterConsumer();
         }
     }
 
@@ -94,8 +94,14 @@ Item {
     Rectangle {
         id: bgContainer
         anchors.fill: parent
-        color: ThemeBackend.surface0
+        color: Qt.alpha(ThemeBackend.surface0, ThemeBackend.elementOpacity)
         radius: ThemeBackend.borderRadius
+
+        WallpaperBlur {
+            z: -1
+            anchors.fill: parent
+            radius: parent.radius
+        }
 
         Rectangle {
             id: bgMask
@@ -143,9 +149,7 @@ Item {
                 width: root.showArt ? Math.min(200, root.height - root.dynMargin * 2) : 0
                 height: width
                 radius: ThemeBackend.borderRadius
-                color: ThemeBackend.surface1
-                border.width: 1
-                border.color: (root.isMediaActive && MprisController.isPlaying) ? ThemeBackend.mauve : ThemeBackend.surface1
+                color: Qt.alpha(ThemeBackend.surface1, ThemeBackend.elementOpacity)
                 visible: root.showArt
 
                 Text {
@@ -174,13 +178,13 @@ Item {
                         maskSource: artMask
                     }
 
-                    Image {
+                    BoundedImage {
                         id: artImg
                         anchors.fill: parent
                         source: (root.isMediaActive && MprisController.artUrl) ? (MprisController.artUrl.startsWith("file://") || MprisController.artUrl.startsWith("http") ? MprisController.artUrl : "file://" + MprisController.artUrl) : ""
                         fillMode: Image.PreserveAspectCrop
                         opacity: (root.isMediaActive && status === Image.Ready && MprisController.artUrl !== "") ? 1.0 : 0.0
-                        Behavior on opacity { NumberAnimation { duration: 300 } }
+                        Behavior on opacity { NumberAnimation { duration: 250 } }
                     }
                 }
             }
@@ -237,6 +241,7 @@ Item {
                         buttonIcon: "󰒮"
                         iconFontSize: root.iconSize
                         accentColor: ThemeBackend.surface1
+                        bgOpacity: ThemeBackend.liquidGlass ? 1.0 : ThemeBackend.elementOpacity
                         textColor: isHoveredOrHighlighted ? ThemeBackend.text : ThemeBackend.overlay2
                         onClicked: if (root.player && root.player.canGoPrevious) root.player.previous()
                     }
@@ -250,6 +255,7 @@ Item {
                         buttonIcon: (root.isMediaActive && MprisController.isPlaying) ? "󰏤" : "󰐊"
                         iconFontSize: root.iconSize
                         accentColor: ThemeBackend.surface1
+                        bgOpacity: ThemeBackend.liquidGlass ? 1.0 : ThemeBackend.elementOpacity
                         textColor: isHoveredOrHighlighted ? ThemeBackend.green : ThemeBackend.text
                         onClicked: if (root.player && root.player.canTogglePlaying) root.player.togglePlaying()
                     }
@@ -263,6 +269,7 @@ Item {
                         buttonIcon: "󰒭"
                         iconFontSize: root.iconSize
                         accentColor: ThemeBackend.surface1
+                        bgOpacity: ThemeBackend.liquidGlass ? 1.0 : ThemeBackend.elementOpacity
                         textColor: isHoveredOrHighlighted ? ThemeBackend.text : ThemeBackend.overlay2
                         onClicked: if (root.player && root.player.canGoNext) root.player.next()
                     }

@@ -1,3 +1,627 @@
+### 2.5.0
+
+- feat(weather): replace quiet hours selectors with a draggable time range slider in its own group
+- style(weather): redraw cloud, sun, bolt, rain, wind, fog and waves and pin the warning shield position
+- feat: add weather and government warning notifications with illustrated cards and a Weather settings tab
+- fix(network): decode wifi security by enum so open and OWE networks skip the password prompt
+- fix(media): blur album art in QML and keep the largest cover for each track
+- perf: load wallpaper picker on demand, cap visualizer updates and bound paused searches
+- feat: new widgets: Timer, Stopwatch, Pomodoro for desktop. Adaptation of the quickactions
+- docs(readme): add subreddit invite above installation
+- chore(aur): bundle Ski 0.6.3
+
+### 2.4.3
+
+- fix(wallpaper): wait for the frozen frame capture to finish before starting an interrupting transition
+- style(wallpaper): give transition previews a 16:9 aspect ratio
+- fix(wallpaper): declare tint on transition mask shaders to silence missing property warnings
+- style(wallpaper): lay transition previews out in a three-column grid like the bar style cards
+- feat(wallpaper): add paint transition that grows the new wallpaper in from cell colonies
+- feat: quit serpantinum-core, -audio and -gamma when serpantinumd stops, and leave gamma running through installer updates
+- feat(installer): restart running core and gamma daemons after updating them, with one helper shared with audio
+- Revert "feat: restart serpantinum-core, -audio and -gamma daemons left running from an older install"
+- feat: restart serpantinum-core, -audio and -gamma daemons left running from an older install
+- feat(wallpaper): index wallpapers with serpantinum-core and drop indexer.py
+- feat(network): read addresses, Wi-Fi frequency and connectivity from serpantinum-core instead of polling nmcli, ip and iw
+- chore: pin serpantinum-core 0.5.0 and drop iw
+- feat(visualizer): read the spectrum from serpantinum-audio instead of cava
+- feat(quickactions): add floating open, close and toggle IPC
+- chore(deps): drop pavucontrol, bluez-utils, and git and unzip as runtime dependencies
+- fix(updater): pass notification text as arguments so the shell never expands it
+- chore: pin serpantinum-core 0.4.1 and drop libnotify
+- fix(i18n): suggest serpantinum-core notify in idle command examples
+- refactor(notifications): send notifications with serpantinum-core notify instead of notify-send
+- chore(deps): drop inotify-tools
+- refactor(recording): watch the recording pid file with FileView instead of inotifywait
+- refactor(quickactions): remove unused dock quick action
+- chore(deps): drop unused packages and python/qt websockets
+- fix(guide): keep drag chip lists consistent when shown ids are a Qt sequence or settings reload mid-drag
+- feat(wallpaper): add recently applied/recently added switch to the recent tab
+- style(switch): add horizontal padding so option text doesn't hug the edges
+- refactor(wallpaper): use larger font icons for filter tabs and a circular arrow for recently applied
+- fix(tray): keep menu fillets on the straight bar edge and fill the bar's rounded end when the menu overhangs it
+- feat(tray): glide the menu between tray icons instead of jumping
+- feat(tray): animate submenu open/close and slide a single panel between sibling submenus
+- fix(tray): collapse redundant menu separators and pixel-align submenus to remove the seam
+- fix(tray): keep attached submenus inside their parent's side and detach ones that don't fit
+- fix(lock): start password auth immediately after resume and queue early enter presses (#564)
+- fix(fillets): stop toggling ear visibility so the blur mask no longer randomly renders empty on reopen
+- fix(launcher): offset attached launcher by the solid bar's edge margin so it no longer overlaps the bar
+- refactor: list monitors with serpantinum-core monitors and remove the monitors_detect script and its cli entry
+- chore: pin serpantinum-core 0.3.0
+- refactor: rename the blue light filter command, script and qml singleton to gamma
+- refactor: remove the unused current_focus script and its cli entry, docs and translations
+- docs: group the package pages under components with one page per package
+- docs: add serpantinum-gamma pages and name the docs sections after their packages
+- docs: add serpantinum-core pages and link them from the sidebar and install table
+
+### 2.4.2
+
+- chore: pin serpantinum-core 0.2.0 and drop brightnessctl and python-jeepney dependencies
+- feat: move launcher ranking, file search and the hibernate and fingerprint checks to serpantinum-core
+- feat: track screen time and read wellbeing stats through serpantinum-core instead of the Python focus daemon
+- feat: replace the Python idle helper with serpantinum-core watch idle
+- feat: read and set brightness through serpantinum-core and drop brightness.sh
+- feat: read Sway, Niri and Mango state from serpantinum-core instead of compositor CLI processes
+- chore: bump serpantinum-gamma to 0.7.0
+- fix: update serpantinum-core to 0.1.2 for event-driven lock detection and the Hyprland LED check
+- feat: read system usage, keyboard locks and clipboard history from serpantinum-core
+- feat(guide): animate search view, add section labels, faint highlights and upfront search indexing
+- revert(guide): restore original settings tab spacing and row styling
+- refactor(guide): tidy settings layout and sidebar, fix search ids for non-Latin titles
+- fix(i18n): show the fallback string when a translation key is missing
+- docs: trim marketing phrasing and padding in the README and docs
+- fix(quickactions): keep calculator dropdowns inside the panel by bounding their height
+- fix(guide): drop uninstalled dock apps when applying settings presets
+- fix(guide): show widget rotation correctly in preset previews
+- fix(guide): keep preset widget previews in their saved theme without flicker
+- fix(guide): restore widgets when applying settings presets and preview them live
+- feat(guide): preview settings presets with captured bar and dock
+- chore(aur): bundle Ski 0.6.2
+- feat(guide): add settings presets tab to save and apply full setups
+- feat(reusables): add shader-animated checkbox
+- chore(aur): bundle Ski 0.6.1
+- fix(wallpaper): shuffle from the configured wallpaper directory
+
+### 2.4.1
+
+- chore: remove qylock license and credit
+- fix(wallpaper): freeze the current frame when a transition is interrupted
+- feat(guide): add wallpapers tab with configurable wallpaper transitions
+- fix(dropdown): open upward and reverse the list when there is no room below
+- fix(bar): avoid implicitWidth binding loop in menu face
+- chore(aur): bundle Ski 0.6.0
+- refactor(compositor): add CompositorStateBase for shared workspace index state
+- refactor(reusables): add SubscriptionGate and replace hand-rolled subscription bookkeeping
+- refactor(bar): add BarFaceBase and migrate bat, bt, kb, vol and wifi faces
+- feat(bar): add shuffle wallpaper button to the menu module
+- feat(guide): add reusable drag chip editor for menu buttons and sysmon stats
+- feat(bar): add night light and caffeine toggles to the menu module
+- fix(lock): mirror password input across all monitors
+- fix(inputs): keep bound error state in password input
+- fix(wallpaper): guard search cleanup against empty paths (#460)
+- feat: add favorites tab and star toggle to the wallpaper picker
+- fix: install matugen 4.x from upstream release on Fedora
+- refactor: extract collapsible section and revealable row from dock tab
+- refactor: extract shared usage face base components
+- refactor: share screen-toggle and hover-menu logic across widget controllers
+- feat: add a show distances toggle for the widget redactor and fix sentence case in widget settings
+- feat: add widget distance labels, spacing and resize snapping, and arrow key nudging to the widget redactor
+
+### 2.4.0
+
+- fix: listen to Compositor.name changes instead of the removed isSway handlers
+- refactor: report unknown compositors instead of falling back to Hyprland
+- refactor: replace the compositor flags with Compositor.name comparisons
+- refactor: detect the compositor in one Compositor singleton
+- feat(workspaces): add optional per-monitor workspace numbering on Hyprland
+- fix(dock): hide over hyprland special workspaces and check fullscreen per monitor (#542)
+- fix(weather): show 0.0 instead of -0.0 for temperatures that round to zero (#541)
+- chore: bump serpantinum-gamma to 0.6.0
+- refactor(theme): move telegram and obs into .backup
+- refactor(theme): move discord and steam into .backup
+- fix(zen): set the background variables on the element Zen paints the sidebar with
+- refactor(theme): move zed, tilix, xfce terminal, fcitx5 and spicetify into .backup
+- refactor(theme): move app themes that could not be verified into .backup
+- docs(audio): split the audio engine page and document excluded voice chat apps
+- fix(audio): update serpantinum-audio to 0.3.1 to keep voice chat apps off the engine
+- fix(theme): restore the original JSON bytes on undo
+- fix(theme): remove the padding blank line added before a block on undo
+- fix(theme): remove ini config files created by app theming when switching off
+- fix(lsd): point color.theme at the generated file so lsd loads it
+- fix(wofi): import the theme by absolute path so GTK can resolve it
+- fix(spotify-player): use a valid color name for the playing track
+- refactor(bluelight): drive serpantinum-gamma through its own CLI instead of busctl
+- feat(bluelight): replace wl-gammarelay-rs with serpantinum-gamma
+- fix(weather): retranslate cached forecast on language change without refetching
+- feat(theme): add 42 themed apps and json, each and lines_from integrations
+- feat(theme): pick themed apps from a searchable popup instead of a dropdown
+- refactor(theme): drop custom app creation, show app theming issues in a popup
+- feat(theme): app theming for GTK, Qt, terminals and other apps without overwriting their configs
+- chore: remove unused matugen_reload script
+- feat(sddm): redesign theme with Material clock, lock-style password input, dark mode and animated theme toggle
+- chore: drop Qt5 and qt5compat dependencies, port SDDM theme to MultiEffect
+- feat(screenshot): choose the screenshot save directory in settings
+- flake.lock update
+
+### 2.3.4
+
+- fix: quote-safe wallpaper apply command and load saved draw palettes
+- fix: silence missing-file warnings from new FileViews and skip preloading write-only ones
+- fix(widgets): refresh the open redactor when a preset is applied
+- perf: replace shell-based file reads and writes with FileView
+- fix(screenshot): only require the tools the chosen mode uses (#538)
+- perf(screenshot): drop shell spawns for file removal and QR result read
+- perf(niri): rely on the event stream's initial state instead of polling on subscribe
+- perf(wellbeing): skip unchanged live data, slow per-app polling and roll over at midnight
+- refactor(cli): move lock-redactor from launch to a top-level command
+- refactor(cli): remove the launch widgetredactor runner mode
+- refactor(settings): call shell singletons directly instead of spawning quickshell ipc
+- refactor(settings): remove the separate settings window
+- feat(idle): log screensaver inhibitors and simulated activity to the journal
+- fix(niri): clear stale focus when an opened window takes focus
+- perf(bar): track focus and keyboard layout in-process and drop kb_wait.sh
+- perf(wellbeing): drive focus tracking from compositor events and cut disk syncs
+- fix(msg): keep msg toggle autohide working as a deprecated alias
+- refactor(msg): group notifications clear, network airplane and bar autohide under parents
+- refactor(cli): group info, set and trigger commands under logical parents
+- refactor(cli): fold info dock-autohide into info dock
+- refactor(cli): fold info caffeine into info idle
+- feat(cli): add serpantinum info idle to print idle system status
+- feat(idle): add idle status IPC call reporting gate and action state
+- feat(workspaces): track the active workspace per monitor on Hyprland and Sway
+- perf(sway): share one IPC event stream through a SwayState singleton
+- fix(website): link Arch card to the distro list in docs instead of the overflowing popout
+- docs(nix): install Ski alongside the package when skipping the system module
+- fix(notifications): keep live notification after popup closes so center actions invoke
+- fix(install): deploy an up-to-date version.txt so updates stop reporting a stale version
+- perf: drop redundant polling, duplicate reads and shell-spawned file writes
+- chore(aur): bundle Ski 0.5.1
+- fix(settings): toggle embedded settings from the desktop menu and system panel
+- fix(settings): toggle embedded settings from the bar and user widget buttons
+- fix(idle): keep idle locking active in performance mode
+- feat(install): remember SDDM and wallpaper preferences between runs
+- chore(aur): bundle Ski 0.5.0
+- feat(bar): add option to hide the media widget when nothing is playing
+- chore(aur): bundle Ski 0.4.8
+- fix(network): clear stuck connect state when the popup closes
+- feat(lock): reveal the wallpaper behind curvier, layered intro waves
+- chore: update flake.lock
+- fix(nix): keep the saved version in sync with the installed package so updates show the new version
+- chore: bump bundled Ski to 0.4.6 in the AUR packages and flake lock
+- chore: bump bundled serpantinum-audio to 0.3.0
+- fix(install): fall back to a full system upgrade when Quickshell can't be upgraded alone on Void
+- fix(install): parse lowercase Quickshell versions and upgrade Fedora installs from the COPR
+- fix(music): size device and source pills from the popup width so they no longer collapse to ellipses
+- chore: update flake.lock
+- chore: bump bundled Ski to 0.4.5 in the AUR packages
+
+### 2.3.3
+
+- feat(widgets): remember the last picker category, thicken the dock and strengthen the redactor dim
+- refactor(widgets): remove search from the widget picker
+- fix(music): bound device and source pills so long device names stay inside the popup
+- feat(widgets): cycle picker groups with tab and arrows and fit the drawer to its widgets
+- style(widgets): open widget categories as a drawer merged into the picker dock
+- style(widgets): redesign the widget picker with live previews and a flatter dock
+- perf(lock): load the lock backdrop before image widgets
+- fix(widgets): polish the widget picker layout, search and category placement
+- feat(widgets): group the redactor widget picker into categories with search
+- feat(widgets): add text widget
+- fix(audio): ignore the serpantinum-audio output stream when detecting active playback
+- fix(lock): don't auto-repeat characters in the password field (#513)
+- chore: bump bundled Ski to 0.4.3 in the AUR packages and flake lock
+- fix(audio): use the real default output now that serpantinum-audio 0.2.0 routes streams instead of taking the default
+- chore: bump bundled Ski to 0.4.1 in the AUR packages and flake lock
+- fix(network): connect after pairing once the pairing link drops (#514)
+
+### 2.3.2
+
+- fix(media): restore the test tone paths so the audio test plays through serpantinum-audio
+- docs: describe the narrower EasyEffects handover and how to turn EasyEffects off
+- fix(audio): limit the EasyEffects handover to what Serpantinum set up and notify once instead of killing it on every start
+- fix(nix): put serpantinum-audio on PATH alongside the shell binaries
+- feat(media): show the dynamic EQ as a labelled button with a toggle and let Toggle take a track size
+- feat(audio): replace EasyEffects with the serpantinum-audio engine and add a dynamic EQ toggle
+- docs: document the serpantinum-audio engine and drop EasyEffects from the guides
+- feat(install): add Void Linux support with an xbps backend
+- chore: bump bundled Ski to 0.4.0 in the AUR packages
+- fix(bluelight): anchor wl-gammarelay-rs process match and guard SERPANTINUM_DIR under nounset
+- fix(bluelight): prevent unbound variable in caching.sh under nounset and fix process matching (#510)
+- chore: bump bundled Ski to 0.3.0 in the AUR packages
+- chore: update flake.lock
+- fix(network): raise lightning beam cap to 16 so a third Bluetooth device gets its beams
+- chore: bump bundled Ski to 0.2.2 in the AUR packages
+- fix(glass): defer backdrop resolve until the fill is completed to stop binding loop warnings
+- fix(bar): install the glass backdrop binding after creation to stop binding loop warnings
+- fix(quickactions): stop the floating peek bar from sticking after the edge trigger hands off
+
+### 2.3.1
+
+- fix(installer): stop caching.sh from creating the version marker so fresh installs aren't detected as updates
+- fix(sidemusic): use flat corner radii and glass fillets to stop translucent corner overlap
+- feat: bundle the Ski file manager as the default file manager, file picker and dock app
+- fix(clipboard): stop the clipboard watcher from being orphaned when the shell dies
+- fix(dock): keep the dock surface fullscreen so edit mode no longer jumps
+- fix(dock): restore drag and drop target highlights as fills
+- fix(quickactions): register the floating edge trigger type
+- perf(quickactions): map the floating overlay only while it is shown and use thin edge triggers at rest
+- perf(dock): shrink the dock surface to an edge strip outside edit mode
+- perf(bar): share one recording directory watcher across screens
+- perf: share one keyboard layout watcher between bar and lock
+- perf: pause notification, notes and material clock tickers while hidden
+- perf(wellbeing): watch the limit event file instead of polling it every 2 seconds
+- perf(clipboard): block on stdin instead of polling to guard the wl-paste watcher
+- perf(launcher): load the emoji table on first emoji search
+- perf(settings): release background tabs after the guide stays closed for 10 minutes
+- perf(wallpaper): create the picker preview player only when a video is previewed
+- perf: decode album art, screenshot notifications and settings previews at display size
+- perf(widgets): decode desktop image widgets at display size
+- perf(quickactions): load modules on first reveal instead of at startup
+- perf(bar): load only the active layout and enabled module faces
+- fix(quickactions): restore pin button border
+- perf(wallpaper): keep video wallpaper decoding off the NVIDIA GPU (CPU, or iGPU via VAAPI on hybrids) (#500)
+- fix(bar): clear wifi device when no wifi adapter remains
+- fix(bar): clear ethernet device when no wired device remains
+- style(bar): drop comment from wired device selection
+- fix(bar): show ethernet when a virtual wired NIC is also present (#499)
+- fix(launcher): localize settings entry and match desktop keywords
+- fix(brightness): skip invalid displays when detecting the DDC bus
+- chore: add qylock GPL-3.0 license
+- chore: update flake.lock
+- style(clipboard): use a faint tint for the selected entry
+- chore: ignore the audio binary
+- fix(settings): restore the sidebar highlight morph and tint the selected clipboard image
+- style: remove borders from the shell
+- style: unify animation durations to 150, 250 and 400 ms
+- fix(osd): keep lock and airplane toggles inline with titles in the in-process settings
+- fix(lyrics): compute next boundary from position so seeking back no longer freezes lyrics
+- fix(main): ignore repeated close requests so the window can't get stuck open but undrawn
+- fix(dock): launch pinned apps whose desktop_id ends with .desktop (#490)
+- fix(volume): highlight the active output and input by node name
+- fix(dropdown): keep glass hover lens under the cursor while scrolling
+- fix(lyrics): stop stale cache reads and play/pause from restarting the lyrics search
+- fix(matugen): stop regenerating the fastfetch config so user edits persist
+- fix(quickactions): keep calculator dropdown open while hovering its list (#484)
+- fix(bar): make the battery fill fully transparent in liquid glass
+- fix(launcher): drop the duplicate built-in settings entry in favor of the settings app
+- Revert "fix(settings): always open the separate window from the application launcher entry"
+- fix(settings): always open the separate window from the application launcher entry
+- feat(settings): add an option to open settings as a separate window, restoring the in-shell panel with lazy tab loading and its entrance animation by default
+- fix(keybinds): toggle settings with super+h again
+- fix(lock): stop the wallpaper blur from glowing through card borders
+- fix(lock): retry fingerprint auth after waking from sleep instead of disabling it
+- fix(installer): keep updating when the quickshell upgrade fails and avoid removing the installed package first
+- fix(wellbeing): stop the header from stretching over the tab
+- fix(wellbeing): show the today button beside the date so the arrows stay fixed
+- fix(wellbeing): smooth app overview transition and collapse the today button space
+- fix(keybinds): open the settings window with super+h instead of toggling it
+- fix(wellbeing): reset hourly bars on app or date change and move day arrows toward the edges
+- fix(settings): focus the settings window through foreign toplevel and add mango support
+- fix(settings): open the settings window instead of toggling it from the bar, user face, desktop menu and system panel
+- fix(wellbeing): stop daily usage bars jumping from the top when opening an app overview
+
+### 2.3.0
+
+- feat(wellbeing): add app picker dialog, localized limit notifications and app limit overlay
+- feat(wellbeing): translate limit strings and use delete buttons for app rows
+- style(wellbeing): make the limit overlay more minimal
+- fix(settings): keep the standalone settings window at full opacity without blur or glass
+- fix(lock): center the default lock screen layout when no fingerprint reader is available
+- fix(settings): disable blur and liquid glass in the standalone settings window
+- fix(settings): make the window transparent and call the OSD test through a reachable IPC function
+- fix(installer): upgrade quickshell older than 0.3.0 during install and update
+- fix(osd): ignore phantom Caps/Num Lock LED changes on Hyprland
+- Merge PR #477: Ukrainian About button shows the translator's fork
+- Merge PR #476: Ukrainian dates shown in English
+- Merge PR #474: smart ranking for .desktop ids and launch stats race
+- fix(i18n): Ukrainian About button shows the translator's fork
+- fix(i18n): Ukrainian dates shown in English
+- fix(launcher): lock launch stats while logging so parallel writes don't wipe them
+- refactor: add reusable CloseButton and use it for close buttons
+- fix(settings): escape no longer closes the standalone settings window
+- feat(dock): pin Kitty and Files by default on first install
+- fix(launcher): match focus time for desktop ids ending in .desktop
+- fix(first-launch): open the settings window on the welcome tab
+- fix(settings): restore the welcome tab
+- style(settings): make sidebar tab and subtab icon badges opaque
+- fix(settings): suppress the quickshell reload popup in the settings process
+- fix(settings): tab and shift+tab switch tabs again
+- perf(settings): freeze hidden tab size so only the visible page relayouts on resize
+- fix(settings): let page content stretch to the full window width
+- fix(settings): make the sidebar highlight width follow the sidebar instantly on resize
+- perf(settings): overlay search without relayout, lighter results, fast sliding highlight, drop page title
+- style(settings): align the search input with the sidebar header and drop its inner icon
+- refactor(settings): restore nested subtabs and grouped search, search icon beside the title, faster highlight
+- feat(settings): flat sidebar, header search and subpage tabs, full keyboard navigation, calmer visuals
+- perf(settings): load the image picker video preview only when a video is selected
+- perf(settings): load every tab synchronously at startup in the standalone settings process
+- fix(settings): tint the about logo through colorization so it renders without the mask layer
+- perf(settings): preload tabs asynchronously and sooner in the standalone settings process
+- fix(pickers): size file pickers to the window and restore the round hidden-files toggle handle
+- fix(settings): apply widget presets via layout file and keep the widgets tab in sync with the live shell
+- feat(settings): rework the wellbeing tab with a limits page, metric cards and a redesigned week heatmap
+- refactor(settings): drive expand animations from state progress instead of animating layout height
+- fix(settings): disable height animations while the window is being resized so rows keep up
+- style(settings): tint the expanded tab icon instead of showing a chevron in the collapsed sidebar
+- fix(settings): remove sidebar tooltips and reposition the collapsed expand chevron with state-aware color
+- fix(settings): unique tab icons, centered collapsed sidebar icons and grouped subtabs in compact mode
+- fix(settings): animate the sidebar collapse smoothly instead of snapping
+- fix(settings): make the settings window freely resizable with a compact sidebar and stacked rows on narrow widths
+- feat(settings): run settings as a standalone window and rename guide to settings with a deprecated alias
+- feat(packaging): add serpantinum settings desktop entry and icon to nix, aur and installer
+- feat(i18n): add OCR language warning translations
+- feat(screenshot): warn when OCR text may be in an uninstalled language
+- perf(guide): virtualize OCR language list and keep its order stable
+- feat(i18n): add screenshot tab and OCR language translations
+- feat(guide): add screenshot tab with OCR language manager
+- feat(screenshot): download OCR language models on demand
+- chore: add tesseract dependency for screenshot OCR
+- feat(i18n): add OCR notification translations
+- feat(screenshot): add OCR with automatic language detection
+- feat(i18n): add translations for notes widget, converter and web search
+- feat(widgets): add read-only notes widget that opens the notes quick action
+- feat(calculator): add currency and unit converter with daily cached rates
+- feat(launcher): add ? web search with selectable provider
+- style(bar): darken layout drag boxes and align titles
+- fix(syspanel): use settings as the only caffeine state
+- docs: add cli overview and keybinding examples
+- refactor(cli): group commands under info, set and trigger
+- docs: document new cli commands
+- feat(cli): add dnd, notif, bar, idle, caffeine, dock, sfx and firstlaunch commands
+- feat(cli): add wallpaper and theme commands
+- feat(cli): add config, lang, monitors and check-updates commands
+- feat(cli): add power, launcher, clipboard, guide, calendar and redactor commands
+- fix(bluelight): make auto schedule independent of the manual strength
+- feat(cli): add restart command and translations
+- fix(bluelight): wait for gammarelay outputs on startup, per-monitor auto loops, faster sunset blend
+- fix(ui): use theme fonts and colors in reusables, expose ThemeBackend.primary, align guide margins
+- fix(i18n): localize relative time strings and copy settings button
+- fix(installer): skip qt5ct/qt6ct mkdir when it fails because the path already exists
+- chore: update flake.lock
+- perf(guide): pause lock screen preview video while its tab is hidden
+- fix(network,installer): delay bluetooth connect after scan stop and stop enabling pipewire globally (#468)
+- fix(password): rename reserved word char property to glyph (#321)
+- fix(lyrics): extend search timeout to 10s and keep late results from being dropped
+- style(redactor): use theme border radius for toggles, sliders and nav buttons
+- feat(widgets): move lyrics toggle and circle thickness to the second control row
+- feat(lyrics): add toggle to hide the no lyrics text in simple lyrics widget
+- docs: add late fixes to 2.2.14 changelog
+- feat(picker): preview videos in the image picker
+- fix(lock): show resize cursors in the lock editor and keep short element side handles
+
+### 2.2.14
+
+- feat(picker): preview videos in the image picker
+- fix(lock): show resize cursors in the lock editor and keep short element side handles
+- feat(lock): add orbit and liquid fingerprint looks, success shader, and block fingerprint after max attempts
+- feat(clock): redraw stretched clock digits as translucent vector glyphs
+- feat(lock): add fingerprint looks and a show text toggle in the lock editor
+- feat(clock): redesign digital and lockscreen clocks and add stretched clock variant
+- feat(lock): show the custom lock background, including video, in the lock screen editor
+- feat(lock): allow deleting the lock clock
+- feat(lock): use widget clock variants for the lock clock and add lockscreen clock widget
+- fix(lock): restore button look for keyboard and battery lock widgets
+- fix(calculator): type = to evaluate, repeat on equals, invalid paste error, copy and top/bottom sizing
+- style(calculator): use smaller key corner radius
+- fix(input): stop aligned text sliding in when the field resizes
+- fix(clipboard): grab search focus once on open to avoid repeated clipboard read timeouts
+- feat(quickactions): add calculator with normal and advanced modes, history and translations
+- fix(guide): load lock background preview reliably and play video wallpapers live
+- style(bar): use Google Sans Flex in the material time face
+- feat(clock): render the material widget clock with Google Sans Flex
+- fix(lock): render wallpaper blur in desktop widgets on the lock screen
+- perf(glass): build wallpaper blur internals only while the blur is active
+- fix(i18n): translate the dock background setting in all languages
+- perf(guide): load theme preset tiles asynchronously
+- perf(guide): load widget preset wallpapers and faces asynchronously at preview size
+- perf(glass): create the liquid glass shader item only while the fill is active
+- perf(guide): pause background tab preload during open and close animations
+- fix(lock): track scaled face size so the battery matches its redactor size
+- fix(draw): cap undo at 100 steps without dropping history so undo no longer erases older strokes
+- feat(widgets): add undo and redo to the widget redactor
+- feat(lock): add undo and redo to the lock screen redactor
+- feat(lock): use bar battery and keyboard faces as lock widgets with a new battery button style
+- feat(lock): refit default panel layout and migrate untouched legacy panels
+- feat(widgets): allow smaller weather card and flatter music widget
+- style(guide): tighten spacing in display settings groups and widget cards
+- fix(lock): enable hover on redactor drag areas so resize cursors show
+- fix(guide): hide fingerprint attempts setting when fingerprint is unavailable
+- fix(lock): hold wallpaper back until the curtain cascade covers the frozen screenshot
+- feat(lock): add lock screen background selector with follow wallpaper and custom image or video
+- feat(lock): add lock screen redactor and render the lock screen from its saved layout
+- feat(lock): add lock screen settings tab with attempt limits and fingerprint toggle
+- fix(lyrics): ignore stale position readings and guard seeks to stop jumps to the start
+- fix(media): pass player id to art_fetch.sh from the music popup
+- fix(quickactions): only switch tabs on scroll over the sidebar (#461)
+
+### 2.2.13
+
+- perf(glass): skip geometry recompute when nothing moved
+- fix(glass): fade lens distortion on large glass panels
+- fix(clipboard): stop wl-paste watcher when quickshell exits
+- feat(theme): allow element opacity down to 0
+- chore: ignore .omc
+- perf(glass): replace per-frame ancestor-tracking bindings with imperative refresh
+- fix(glass): reduce blur behind liquid glass
+- feat(glass): add fresnel, inner lens and sharper dispersion and drop flat fills
+- perf(daemon): speed up stop and kill and exit cleanly on ctrl+c
+- refactor(guide): split theme, display, general and notifications tabs into components
+- refactor(guide): split digital wellbeing tab into view components
+- refactor(guide): split bar tabs into general and modules components
+- perf(guide): preload all tabs on startup and keep preloading while hidden
+- refactor(bar,network): rename root window ids to avoid shadowing child properties
+- refactor(media): split music popup into audio, equalizer, lyrics and player state components
+- refactor(lock): split lock screen into surface, dashboard, wings, clock and backdrop components
+- refactor(dock): split dock into window, container, app button and picker components
+- refactor(guide): extract shared GuideTab component and extend it from every tab
+- refactor(guide): split bar modules tab into shared module card, preview and style card components
+- fix(bar): guard group background bindings against destroyed wrapper in modular style
+- perf(calendar): drive clock pulse and midnight rebuild from the shared datetime singleton
+- perf(timer): tick fast only while stopwatch is visible and skip unchanged exports
+- perf: drive 16ms decay and reveal timers with frame animations
+- fix(launcher): do not attach to the bar in modular style
+- fix(launcher): keep glass hover lens under the cursor while scrolling
+- fix(bar): keep group glass bindings reactive so grouped modules render liquid glass in modular style
+- fix(syspanel): use transparent liquid fill for battery box in glass mode
+- fix(glass): disable blur passes and unbind mask source when unused to silence texture provider warning
+- fix(launcher): round card size and corner radius to avoid subpixel fillet mismatch
+- fix(fillets): keep ear blur enabled once the radius has been non-zero
+- fix(glass): pad wallpaper blur and mask corners in a shader to remove edge artifacts in blur mode
+- fix: guard pills face and volume popup delegates against undefined parent during teardown
+- fix(fillets): stop double-premultiplying corner cutout color below full opacity
+- fix(volume): adapt list items and wave orb to liquid glass
+- fix(bar): widen active workspace pill in guide preview
+- fix(glass): adapt media face thumb to liquid glass when not playing
+- perf(glass): cut blur taps in flat glass interiors and cull off-screen previews in bar modules tab
+- fix(switch): avoid dark pulse on selected tab when glass activates
+- fix(glass): stop glass surfaces and icons flashing when created
+- fix(glass): align glass fill sampling with backdrop orientation so transitions follow on rotated sidebar edges
+- fix(glass): tone down rainbow fringe at rest and let it follow motion
+- fix(guide): load tabs synchronously again
+- fix(switch): track repeater item creation so the selected highlight shows in async loaded tabs
+- perf(guide): stagger async tab preload, cache search haystacks and avoid relayout when closing search
+- feat(glass): add shared GlassLens and sliding hover, lift and ripple effects across inputs, launcher, sidebar, dock, tray and notifications
+- fix(bar): drop glass rim on fill bar and its corner fillets
+- fix(launcher): keep attaching to the bar when the bar is translucent
+- docs: document wake event in idle helper
+- fix(lock): restart fingerprint auth after resuming from sleep (#455)
+- fix(dropdown): route delegate glass bindings through ListView.view so the first item gets liquid glass on hover
+- fix(glass): render fill bar outer corners and edge fillets as liquid glass
+- feat(glass): derive draggable glass type from accent color and reduce tint
+- fix(lock): apply element opacity to lock screen usage and network cards
+- fix(guide): collapse dock settings and blobs fully to zero height
+- fix(glass): keep liquid glass from sampling off-screen wallpaper and show quickactions handle pill in glass mode
+- fix(glass): render attached corner fillets as liquid glass across dock, launcher, tray, osd, clipboard and sidebar
+- fix(guide): restore glass osd preview card and use glass draggable slider
+- feat(guide): adapt screen selector and osd/notification previews to liquid glass
+- fix(launcher): render selected item as frosted glass without tint in liquid glass
+- fix(media): render playback buttons as full liquid glass with shadow
+- fix(wellbeing): guard chart bindings against teardown and whiten time difference text in liquid glass
+- feat(wellbeing): adapt month and week heatmaps to liquid glass
+- feat(wellbeing): render progress bars and bar charts as liquid glass with white text
+- feat(wellbeing): adapt cards and app rows to liquid glass
+- perf(guide): load tabs lazily and skip inactive glass bindings
+- feat(glass): add edge warp, diffraction fringe and motion-driven zoom to liquid glass
+- chore(i18n): add element opacity and wallpaper blur translations
+- chore(i18n): add menu module translations
+- feat(bar): add launcher button and style options to menu module
+- feat(network): adapt power button and core layer to liquid glass
+- fix: adapt notifications and lock panel to wallpaper blur mode
+- fix: anchor liquid fill scale to the button's left edge
+- fix(lock): adapt notification buttons, network speed and power button to liquid glass
+- feat(tray): add liquid glass hover to tray menu items
+- feat(dock): adapt app picker to liquid glass
+- fix: clamp fill button background alpha to avoid invalid setAlphaF values in liquid glass
+- feat: readable liquid glass with adaptive darkening, white text and accent glass network nodes
+- fix(launcher): render the glass selection outside the scrolling list so scroll and selection stay in sync
+- feat: use liquid fill shader for hold buttons in liquid glass
+- style: darken liquid glass surfaces
+- fix(launcher): draw the selection highlight behind item text outside liquid glass
+
+### 2.2.12
+
+- feat: improve liquid glass
+- fix: clamp dock input mask so it no longer blocks bar elements on the same edge
+- fix(glass): stop standalone backdrops nesting widget previews and glass the music popup fills
+- feat(draggable): render the filled track as accent tinted liquid glass
+- fix(glass): remove picker, music popup borders, restyle calendar dates and keep corner radii stable
+- feat(glass): adapt widgets, popups and fill button to readable liquid glass
+- fix(network): restore the clear glass core orb and rely on text outline for contrast
+- fix(network): improve text contrast on glass and load a fresh clipped beam shader
+- fix(launcher): render the selection as clear glass so selected text stays readable
+- feat(theme): render the fill button fill as liquid glass with a dedicated shader
+- fix(bar): break the bar module visibility binding loop
+- fix(calendar): guard hourly forecast delegates against torn-down window
+- fix(launcher): use a neutral liquid glass selection highlight
+- fix(network): cut lightning beams inside the core orb in the beam shader
+- fix(network): drive the beam cutout mask from each core orb directly
+- fix(network): clip lightning beams at the core orb boundaries
+- fix(network): remove white fill behind the glass core orb
+- fix(quickactions): guard notes selection binding during teardown
+- fix(guide): guard display monitor card bindings against undefined settings
+- fix(guide): guard search result selection against torn-down popup
+- fix(guide): render display monitor cards as liquid glass
+- fix(guide): remove clipped glass shadow around the search icon
+- fix(guide): make keyboard-selected search results visible in liquid glass
+- fix(launcher): keep selected item text readable in liquid glass
+- fix(launcher): keep rounded corners when wallpaper blur is enabled
+- fix(theme): render nested settings rows and dock and widget cards as liquid glass
+- feat(theme): adapt widget redactor controls to liquid glass and make the network orb clear glass
+- fix(theme): remove dark base overlay from liquid glass surfaces and restore calendar hourly cards
+- feat(theme): morph liquid glass surfaces around the cursor
+- feat(theme): adapt launcher, dock and tray menus to liquid glass and lighten glass surfaces
+- feat(theme): add liquid glass material with refracting shader across surfaces, controls, bar, lock and guide
+- refactor(music): remove floating background blobs from popup
+- feat(theme): adapt widgets, quickactions, menus, music, wallpaper picker and dock to wallpaper blur and element opacity
+- fix(popups): remove border from calendar, network and volume popups
+- feat(theme): add blurred wallpaper background behind transparent surfaces
+
+### 2.2.11
+
+- fix(osd): lay out lock and airplane toggles in a horizontal row
+- refactor(slider): remove keyboard control from draggable
+- fix(settings): add bottom padding to expanded settings group
+- feat(theme): add global element opacity setting and dock background toggle
+- fix(audio): guard mpris and lyrics bindings against undefined values
+- style(music): stretch audio rows to the tab switcher width
+- feat(music): restyle audio tab controls with settings rows, new balance slider and entrance animation
+- chore(media): remove explanatory comments from equalizer script
+- Add native channel balance controls to the Music popup (#421)
+- feat(guide): group related settings rows into blobs across guide tabs
+- feat(bar): add adjustable bar thickness setting with module scaling
+- refactor(bar): merge side module and face variants into single orientation-aware files
+- feat(telemetry): withhold os and compositor when disabled, send arch and session when enabled
+- fix(widgets): clear stretch flags when a widget is moved or resized
+- perf(datetime): recompute minute-level strings only when the minute changes
+- perf(wallpaper): enable transition mask layers only during transitions
+- perf(idle): merge screensaver inhibit and sleep lock into one helper process
+- perf(screenshot): load overlay lazily on first use
+- perf(main): bind input mask to final target geometry
+- refactor(main): remove unused getWidgetGeometry ipc handlers
+- perf(clock): compute lumen clock glow once per tick
+- perf(audio): watch stream changes instead of polling every 500 ms
+- perf(lyrics): poll slowly and publish position only on line or word boundaries
+- perf(marquee): scroll text through a shader
+- fix(screenshot): crop frozen frame instead of recapturing live screen
+- feat(music): add bars and continuous switch to round music face
+- feat(visualizer): add ring wave shader for continuous circular mode
+- fix(music): remove gap between paused cover and bars in round face
+- feat(inputs): repeat number selector step while arrow is held
+- refactor(widgets): use number selector for usage circle thickness
+- feat(widgets): add circle variant to battery widget
+- chore: update flake.lock
+- fix(bar): sync fill outer corners with bar width/height transitions
+- fix(audio): avoid undefined assignments in pipewire tracker and active stream
+- fix: make seek bar wave visible at the start of a track
+- refactor: use wavy seek bar in side music popout
+- feat(bar): add center by edges option and rounded edge-attached fill bar length
+- feat: highlight bash, ini, json, lua and nix code blocks on the website
+- style: fit docs tables to their content width
+- docs: condense Arch distribution list into a single paragraph
+- chore: remove tests directory
+- fix(sddm): prefer weston over kwin_wayland to keep SDDM's default greeter
+- refactor(sddm): localize greeter backend messages and drop comments
+- fix(sddm): install weston only when no compositor or Xorg is available
+- fix(sddm): look up greeter binaries where SDDM can run them
+- refactor(installer): share the SDDM package list with the package overview
+- fix(sddm): keep the installer running when setup_sddm resolves x11 or no backend
+- fix(sddm): validate display backend before modifying system configuration
+- fix(sddm): configure explicit compositor command for wayland and safe fallbacks
+- chore: remove generated .SRCINFO files
+- docs: replace AUR install with build from source on Arch
+- fix: make AUR packages replace quickshell-git with quickshell
+- fix: stop AUR packages from conflicting with quickshell-git
+- docs: add AUR installation guide with manual setup steps
+- feat: add AUR packages and skip update checks for packaged installs
+- fix: guard pipewire node list against undefined during reload
+- fix: keep paused player active instead of switching to idle source
+- fix: keep dock app menu background opaque when dock opacity changes
+- fix: apply brightness while dragging sliders
+- feat: lock session before system sleep without screenshot (#435)
+- fix: use opaque favicon background
+- feat: add right click to close notifications setting
+
 ### 2.2.10
 
 - docs: mention fedora and mango support in readme

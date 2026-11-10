@@ -9,15 +9,11 @@ Flickable {
     id: searchResultsFlickable
     required property var popup
     property alias column: searchResultsCol
-    anchors.fill: parent
-    visible: opacity > 0.001
-    opacity: popup.searchActive ? 1.0 : 0.0
     contentHeight: searchResultsCol.implicitHeight + popup.s(10)
     contentWidth: width
     clip: true
     boundsBehavior: Flickable.StopAtBounds
 
-    Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
     ScrollBar.vertical: ScrollBar {
         active: searchResultsFlickable.moving || searchResultsFlickable.movingVertically
@@ -47,7 +43,7 @@ Flickable {
         }
 
         Text {
-            visible: popup.searchActive && popup.searchQuery.trim() !== "" && popup.filteredSearchResults.length === 0
+            visible: popup.searchActive && popup.searchIndexReady && popup.searchQuery.trim() !== "" && popup.filteredSearchResults.length === 0
             Layout.fillWidth: true
             Layout.topMargin: popup.s(24)
             horizontalAlignment: Text.AlignHCenter
@@ -76,8 +72,18 @@ Flickable {
                     radius: ThemeBackend.borderRadius
                     z: 1
 
-                    color: tabHeaderItemMa.containsMouse ? Qt.alpha(ThemeBackend.surface1, 0.5) : "transparent"
+                    color: (searchTabHoverGlass.active || !tabHeaderItemMa.containsMouse) ? "transparent" : Qt.alpha(ThemeBackend.surface1, 0.5)
                     Behavior on color { ColorAnimation { duration: 150 } }
+
+                    GlassFill {
+                        id: searchTabHoverGlass
+                        anchors.fill: parent
+                        radius: parent.radius
+                        allowed: tabHeaderItemMa.containsMouse
+                        tintColor: ThemeBackend.surface1
+                        tintAmount: 0.25
+                        press: tabHeaderItemMa.pressed ? 0.8 : 0.2
+                    }
 
                     scale: tabHeaderItemMa.pressed ? 0.98 : 1.0
                     Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutQuint } }
@@ -96,7 +102,6 @@ Flickable {
                             Layout.alignment: Qt.AlignVCenter
                             cornerRadius: ThemeBackend.borderRadius
                             buttonIcon: tabGroup.modelData.icon || "󰒓"
-                            iconOffsetX: tabGroup.modelData.iconOffsetX ?? 0
                             iconFontSize: popup.s(16)
                             accentColor: ThemeBackend.surface0
                             textColor: "#ffffff"
@@ -161,11 +166,12 @@ Flickable {
                                 required property var modelData
                                 required property int index
 
-                                property bool isSelected: popup.searchSelectedIndex >= 0 &&
-                                                          popup.searchSelectedIndex < popup.flatSearchResults.length &&
-                                                          (popup.flatSearchResults[popup.searchSelectedIndex] === directItemRow.modelData ||
-                                                           (popup.flatSearchResults[popup.searchSelectedIndex] && popup.flatSearchResults[popup.searchSelectedIndex].key === directItemRow.modelData.key) ||
-                                                           (popup.flatSearchResults[popup.searchSelectedIndex] && popup.flatSearchResults[popup.searchSelectedIndex].id === directItemRow.modelData.id))
+                                property bool isSelected: false
+                                Component.onCompleted: isSelected = Qt.binding(function() {
+                                    if (!popup || !directItemRow.modelData) return false;
+                                    let sel = popup.flatSearchResults[popup.searchSelectedIndex];
+                                    return !!sel && (sel === directItemRow.modelData || sel.key === directItemRow.modelData.key || sel.id === directItemRow.modelData.id);
+                                })
 
                                 onIsSelectedChanged: {
                                     if (isSelected) {
@@ -174,12 +180,26 @@ Flickable {
                                 }
 
                                 Layout.fillWidth: true
-                                implicitHeight: (directItemRow.modelData && (directItemRow.modelData.desc || directItemRow.modelData.description)) ? popup.s(48) : popup.s(38)
+                                implicitHeight: (directItemRow.modelData && directItemRow.modelData.desc) ? popup.s(48) : popup.s(38)
                                 radius: ThemeBackend.borderRadius
-                                color: directItemRow.isSelected
-                                    ? ThemeBackend.mauve
+                                readonly property color legacyColor: directItemRow.isSelected
+                                    ? Qt.alpha(ThemeBackend.mauve, 0.16)
                                     : (directItemMa.containsMouse ? Qt.alpha(ThemeBackend.surface1, 0.6) : Qt.alpha(ThemeBackend.surface0, 0.35))
-                                border.color: "transparent"
+                                color: ThemeBackend.liquidGlass ? "transparent" : legacyColor
+
+                                Loader {
+                                    anchors.fill: parent
+                                    active: ThemeBackend.liquidGlass
+                                    sourceComponent: GlassFill {
+                                    id: directItemRowGlass
+                                    anchors.fill: parent
+                                    radius: parent.radius
+                                    tintColor: directItemRow.isSelected ? ThemeBackend.mauve : ThemeBackend.surface0
+                                    tintAmount: directItemRow.isSelected ? 0.22 : 0.25
+                                    tintStrength: 0.5
+                                    press: directItemMa.pressed ? 0.8 : (directItemMa.containsMouse ? 0.2 : 0)
+                                }
+                                }
 
                                 Behavior on color { ColorAnimation { duration: 150 } }
 
@@ -201,17 +221,21 @@ Flickable {
 
                                     Behavior on anchors.leftMargin { NumberAnimation { duration: 250; easing.type: Easing.OutQuint } }
 
-                                    IconButton {
-                                        enabled: false
-                                        size: popup.s(28)
+                                    Rectangle {
                                         Layout.preferredWidth: popup.s(28)
                                         Layout.preferredHeight: popup.s(28)
                                         Layout.alignment: Qt.AlignVCenter
-                                        cornerRadius: popup.s(6)
-                                        buttonIcon: directItemRow.modelData.icon || "󰒓"
-                                        iconFontSize: popup.s(14)
-                                        accentColor: ThemeBackend.surface0
-                                        textColor: "#ffffff"
+                                        radius: popup.s(6)
+                                        color: directItemRow.isSelected ? Qt.tint(ThemeBackend.surface0, Qt.alpha(ThemeBackend.mauve, 0.16)) : ThemeBackend.surface0
+                                        Behavior on color { ColorAnimation { duration: 150 } }
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: directItemRow.modelData.icon || "󰒓"
+                                            font.family: ThemeBackend.iconFont
+                                            font.pixelSize: popup.s(14)
+                                            color: directItemRow.isSelected ? ThemeBackend.mauve : "#ffffff"
+                                            Behavior on color { ColorAnimation { duration: 150 } }
+                                        }
                                     }
 
                                     ColumnLayout {
@@ -221,11 +245,11 @@ Flickable {
 
                                         Text {
                                             Layout.fillWidth: true
-                                            text: popup.resolveI18nText(directItemRow.modelData.title)
+                                            text: popup.searchItemTitle(directItemRow.modelData)
                                             font.family: ThemeBackend.fontFamily
                                             font.pixelSize: popup.s(12)
                                             font.bold: true
-                                            color: directItemRow.isSelected ? ThemeBackend.crust : ThemeBackend.text
+                                            color: directItemRow.isSelected ? ThemeBackend.mauve : ThemeBackend.text
                                             elide: Text.ElideRight
 
                                             Behavior on color { ColorAnimation { duration: 150 } }
@@ -233,11 +257,11 @@ Flickable {
 
                                         Text {
                                             Layout.fillWidth: true
-                                            text: popup.resolveI18nText(directItemRow.modelData.desc || directItemRow.modelData.description || "")
+                                            text: popup.resolveI18nText(directItemRow.modelData.desc || "")
                                             visible: text !== ""
                                             font.family: ThemeBackend.fontFamily
                                             font.pixelSize: popup.s(10)
-                                            color: directItemRow.isSelected ? Qt.alpha(ThemeBackend.crust, 0.75) : ThemeBackend.subtext0
+                                            color: ThemeBackend.subtext0
                                             elide: Text.ElideRight
 
                                             Behavior on color { ColorAnimation { duration: 150 } }
@@ -266,8 +290,18 @@ Flickable {
                                     radius: ThemeBackend.borderRadius
                                     z: 1
 
-                                    color: subtabHeaderItemMa.containsMouse ? Qt.alpha(ThemeBackend.surface1, 0.5) : "transparent"
+                                    color: (searchSubHoverGlass.active || !subtabHeaderItemMa.containsMouse) ? "transparent" : Qt.alpha(ThemeBackend.surface1, 0.5)
                                     Behavior on color { ColorAnimation { duration: 150 } }
+
+                                    GlassFill {
+                                        id: searchSubHoverGlass
+                                        anchors.fill: parent
+                                        radius: parent.radius
+                                        allowed: subtabHeaderItemMa.containsMouse
+                                        tintColor: ThemeBackend.surface1
+                                        tintAmount: 0.25
+                                        press: subtabHeaderItemMa.pressed ? 0.8 : 0.2
+                                    }
 
                                     scale: subtabHeaderItemMa.pressed ? 0.98 : 1.0
                                     Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutQuint } }
@@ -286,7 +320,6 @@ Flickable {
                                             Layout.alignment: Qt.AlignVCenter
                                             cornerRadius: ThemeBackend.borderRadius
                                             buttonIcon: subGroup.modelData.icon || "󰒓"
-                                            iconOffsetX: subGroup.modelData.iconOffsetX ?? 0
                                             iconFontSize: popup.s(13)
                                             accentColor: ThemeBackend.surface0
                                             textColor: "#ffffff"
@@ -351,11 +384,12 @@ Flickable {
                                                 required property var modelData
                                                 required property int index
 
-                                                property bool isSelected: popup.searchSelectedIndex >= 0 &&
-                                                                          popup.searchSelectedIndex < popup.flatSearchResults.length &&
-                                                                          (popup.flatSearchResults[popup.searchSelectedIndex] === subItemRow.modelData ||
-                                                                           (popup.flatSearchResults[popup.searchSelectedIndex] && popup.flatSearchResults[popup.searchSelectedIndex].key === subItemRow.modelData.key) ||
-                                                                           (popup.flatSearchResults[popup.searchSelectedIndex] && popup.flatSearchResults[popup.searchSelectedIndex].id === subItemRow.modelData.id))
+                                                property bool isSelected: false
+                                                Component.onCompleted: isSelected = Qt.binding(function() {
+                                                    if (!popup || !subItemRow.modelData) return false;
+                                                    let sel = popup.flatSearchResults[popup.searchSelectedIndex];
+                                                    return !!sel && (sel === subItemRow.modelData || sel.key === subItemRow.modelData.key || sel.id === subItemRow.modelData.id);
+                                                })
 
                                                 onIsSelectedChanged: {
                                                     if (isSelected) {
@@ -364,12 +398,26 @@ Flickable {
                                                 }
 
                                                 Layout.fillWidth: true
-                                                implicitHeight: (subItemRow.modelData && (subItemRow.modelData.desc || subItemRow.modelData.description)) ? popup.s(48) : popup.s(38)
+                                                implicitHeight: (subItemRow.modelData && subItemRow.modelData.desc) ? popup.s(48) : popup.s(38)
                                                 radius: ThemeBackend.borderRadius
-                                                color: subItemRow.isSelected
-                                                    ? ThemeBackend.mauve
+                                                readonly property color legacyColor: subItemRow.isSelected
+                                                    ? Qt.alpha(ThemeBackend.mauve, 0.16)
                                                     : (subItemMa.containsMouse ? Qt.alpha(ThemeBackend.surface1, 0.6) : Qt.alpha(ThemeBackend.surface0, 0.35))
-                                                border.color: "transparent"
+                                                color: ThemeBackend.liquidGlass ? "transparent" : legacyColor
+
+                                                Loader {
+                                    anchors.fill: parent
+                                    active: ThemeBackend.liquidGlass
+                                    sourceComponent: GlassFill {
+                                                    id: subItemRowGlass
+                                                    anchors.fill: parent
+                                                    radius: parent.radius
+                                                    tintColor: subItemRow.isSelected ? ThemeBackend.mauve : ThemeBackend.surface0
+                                                    tintAmount: subItemRow.isSelected ? 0.22 : 0.25
+                                                    tintStrength: 0.5
+                                                    press: subItemMa.pressed ? 0.8 : (subItemMa.containsMouse ? 0.2 : 0)
+                                                }
+                                }
 
                                                 Behavior on color { ColorAnimation { duration: 150 } }
 
@@ -391,18 +439,22 @@ Flickable {
 
                                                     Behavior on anchors.leftMargin { NumberAnimation { duration: 250; easing.type: Easing.OutQuint } }
 
-                                                    IconButton {
-                                                        enabled: false
-                                                        size: popup.s(28)
-                                                        Layout.preferredWidth: popup.s(28)
-                                                        Layout.preferredHeight: popup.s(28)
-                                                        Layout.alignment: Qt.AlignVCenter
-                                                        cornerRadius: popup.s(6)
-                                                        buttonIcon: subItemRow.modelData.icon || "󰒓"
-                                                        iconFontSize: popup.s(14)
-                                                        accentColor: ThemeBackend.surface0
-                                                        textColor: "#ffffff"
-                                                    }
+                                                    Rectangle {
+                                        Layout.preferredWidth: popup.s(28)
+                                        Layout.preferredHeight: popup.s(28)
+                                        Layout.alignment: Qt.AlignVCenter
+                                        radius: popup.s(6)
+                                        color: subItemRow.isSelected ? Qt.tint(ThemeBackend.surface0, Qt.alpha(ThemeBackend.mauve, 0.16)) : ThemeBackend.surface0
+                                        Behavior on color { ColorAnimation { duration: 150 } }
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: subItemRow.modelData.icon || "󰒓"
+                                            font.family: ThemeBackend.iconFont
+                                            font.pixelSize: popup.s(14)
+                                            color: subItemRow.isSelected ? ThemeBackend.mauve : "#ffffff"
+                                            Behavior on color { ColorAnimation { duration: 150 } }
+                                        }
+                                    }
 
                                                     ColumnLayout {
                                                         Layout.fillWidth: true
@@ -411,11 +463,11 @@ Flickable {
 
                                                         Text {
                                                             Layout.fillWidth: true
-                                                            text: popup.resolveI18nText(subItemRow.modelData.title)
+                                                            text: popup.searchItemTitle(subItemRow.modelData)
                                                             font.family: ThemeBackend.fontFamily
                                                             font.pixelSize: popup.s(12)
                                                             font.bold: true
-                                                            color: subItemRow.isSelected ? ThemeBackend.crust : ThemeBackend.text
+                                                            color: subItemRow.isSelected ? ThemeBackend.mauve : ThemeBackend.text
                                                             elide: Text.ElideRight
 
                                                             Behavior on color { ColorAnimation { duration: 150 } }
@@ -423,11 +475,11 @@ Flickable {
 
                                                         Text {
                                                             Layout.fillWidth: true
-                                                            text: popup.resolveI18nText(subItemRow.modelData.desc || subItemRow.modelData.description || "")
+                                                            text: popup.resolveI18nText(subItemRow.modelData.desc || "")
                                                             visible: text !== ""
                                                             font.family: ThemeBackend.fontFamily
                                                             font.pixelSize: popup.s(10)
-                                                            color: subItemRow.isSelected ? Qt.alpha(ThemeBackend.crust, 0.75) : ThemeBackend.subtext0
+                                                            color: ThemeBackend.subtext0
                                                             elide: Text.ElideRight
 
                                                             Behavior on color { ColorAnimation { duration: 150 } }

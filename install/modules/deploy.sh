@@ -2,8 +2,6 @@
 
 EXTRA_CONFIGS=(
     "kitty"
-    "cava"
-    "fastfetch"
 )
 
 render_wallpaper_progress() {
@@ -125,6 +123,56 @@ install_wallpapers() {
     fi
 }
 
+resolve_sddm_backend() {
+    local requested_wayland="${1:-false}"
+    local wayland_cmd="" bin
+
+    if bin="$(find_sddm_binary weston)"; then
+        wayland_cmd="$bin --shell=kiosk"
+    elif bin="$(find_sddm_binary kwin_wayland)"; then
+        wayland_cmd="$bin --no-global-shortcuts --no-lockscreen --locale1"
+    fi
+
+    local has_xorg=false
+    if sddm_has_xorg; then
+        has_xorg=true
+    fi
+
+    if [ "$requested_wayland" = true ]; then
+        if [ -n "$wayland_cmd" ]; then
+            printf 'wayland\n%s\n' "$wayland_cmd"
+            return 0
+        elif [ "$has_xorg" = true ]; then
+            echo -e "  \e[33m[ WARN ]\e[0m $(t "installer.deploy.sddm_no_wayland_compositor")" >&2
+            echo "x11"
+            return 0
+        fi
+    else
+        if [ "$has_xorg" = true ]; then
+            echo "x11"
+            return 0
+        elif [ -n "$wayland_cmd" ]; then
+            echo -e "  \e[33m[ WARN ]\e[0m $(t "installer.deploy.sddm_no_xorg" "compositor=${wayland_cmd%% *}")" >&2
+            printf 'wayland\n%s\n' "$wayland_cmd"
+            return 0
+        fi
+    fi
+
+    echo -e "  \e[31m[ ERROR ]\e[0m $(t "installer.deploy.sddm_no_backend")" >&2
+    return 1
+}
+
+configure_sddm_cursor() {
+    local conf="$1" theme=""
+    if [ -d /usr/share/icons/Adwaita/cursors ]; then
+        theme="Adwaita"
+    else
+        theme="$(find /usr/share/icons -mindepth 2 -maxdepth 2 -type d -name cursors 2>/dev/null | head -n 1 | xargs -r dirname | xargs -r basename)"
+    fi
+    [ -n "$theme" ] || return 0
+    sudo sed -i -e "/^ThemeDir=/a CursorTheme=$theme" -e "/^ThemeDir=/a CursorSize=24" "$conf"
+}
+
 setup_sddm() {
     local project_root="$1"
     local install_state="${2:-$INSTALL_STATE}"
@@ -133,6 +181,19 @@ setup_sddm() {
     if [ "$OPT_SDDM" != true ]; then
         return 0
     fi
+
+    local sddm_display_server=""
+    local sddm_compositor_cmd=""
+    local backend_output=""
+    if ! backend_output=$(resolve_sddm_backend "$SDDM_WAYLAND"); then
+        echo -e "  \e[33m[ WARN ]\e[0m $(t "installer.deploy.sddm_skipped")" >&2
+        return 0
+    fi
+
+    {
+        read -r sddm_display_server
+        read -r sddm_compositor_cmd || true
+    } <<< "$backend_output"
 
     local is_update=false
     if [[ "$install_state" == "current" && "$is_reinstall" != "true" ]]; then
@@ -187,7 +248,7 @@ setup_sddm() {
 
     sudo mkdir -p /etc/sddm.conf.d
 
-    if [ "$SDDM_WAYLAND" = true ]; then
+    if [ "$sddm_display_server" = "wayland" ]; then
         cat <<EOF | sudo tee /etc/sddm.conf.d/10-material-you.conf > /dev/null
 [Theme]
 Current=material-you
@@ -197,6 +258,9 @@ ThemeDir=/usr/share/sddm/themes
 DisplayServer=wayland
 GreeterEnvironment=QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 InputMethod=
+
+[Wayland]
+CompositorCommand=$sddm_compositor_cmd
 EOF
     else
         cat <<EOF | sudo tee /etc/sddm.conf.d/10-material-you.conf > /dev/null
@@ -205,12 +269,17 @@ Current=material-you
 ThemeDir=/usr/share/sddm/themes
 
 [General]
+DisplayServer=x11
 InputMethod=
 EOF
     fi
 
     if [ "$PM_SDDM_CURSOR_FIX" = true ]; then
-        pm_configure_sddm_cursor /etc/sddm.conf.d/10-material-you.conf
+        configure_sddm_cursor /etc/sddm.conf.d/10-material-you.conf
+    fi
+
+    if declare -f pm_configure_sddm_session >/dev/null; then
+        pm_configure_sddm_session /etc/sddm.conf.d/10-material-you.conf
     fi
 
     if declare -f pm_enable_display_manager >/dev/null; then
@@ -275,6 +344,26 @@ setup_pam_service() {
 
     printf '%s' "$content" | sudo tee "$target" >/dev/null 2>&1 || true
     sudo chmod 644 "$target" 2>/dev/null || true
+}
+
+remove_settings_desktop_entry() {
+    local data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
+    local apps_dir="$data_home/applications"
+    local icons_dir="$data_home/icons/hicolor"
+
+    if [ -f "$apps_dir/serpantinum-settings.desktop" ]; then
+        rm -f "$apps_dir/serpantinum-settings.desktop"
+        if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database "$apps_dir" >/dev/null 2>&1 || true
+        fi
+    fi
+
+    if [ -f "$icons_dir/scalable/apps/serpantinum-settings.svg" ]; then
+        rm -f "$icons_dir/scalable/apps/serpantinum-settings.svg"
+        if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -qf "$icons_dir" >/dev/null 2>&1 || true
+        fi
+    fi
 }
 
 deploy_package() {
@@ -469,6 +558,11 @@ deploy_package() {
         fi
     fi
 
+    if [ -f "$REPO_ROOT/version.txt" ]; then
+        rm -f "$TARGET_BASE/src/version.txt"
+        cp "$REPO_ROOT/version.txt" "$TARGET_BASE/src/version.txt"
+    fi
+
     if [ -f "$TARGET_BASE/bin/serpantinum" ]; then
         ln -sf "$TARGET_BASE/bin/serpantinum" "$BIN_DIR/serpantinum"
         sudo ln -sf "$TARGET_BASE/bin/serpantinum" /usr/local/bin/serpantinum 2>/dev/null || true
@@ -478,6 +572,8 @@ deploy_package() {
         ln -sf "$TARGET_BASE/bin/serpantinumd" "$BIN_DIR/serpantinumd"
         sudo ln -sf "$TARGET_BASE/bin/serpantinumd" /usr/local/bin/serpantinumd 2>/dev/null || true
     fi
+
+    remove_settings_desktop_entry
 
     setup_pam_service
 }

@@ -32,9 +32,17 @@ Rectangle {
     Layout.preferredHeight: slidersCol.implicitHeight + panel.s(20)
     Layout.maximumHeight: slidersCol.implicitHeight + panel.s(20)
     radius: panel.boxRadius
-    color: Qt.darker(ThemeBackend.surface0, 1.04)
+    color: slidersGlass.active ? "transparent" : ThemeBackend.faded(Qt.darker(ThemeBackend.surface0, 1.04))
     opacity: panel.introSliders
     transform: Translate { x: (panel.isLeftAnchored ? -panel.rowSlideDistance : panel.rowSlideDistance) * (1.0 - panel.introSliders) }
+
+    GlassFill {
+        id: slidersGlass
+        anchors.fill: parent
+        radius: parent.radius
+        tintColor: ThemeBackend.surface0
+        tintAmount: 0.3
+    }
 
     ColumnLayout {
         id: slidersCol
@@ -148,17 +156,17 @@ Rectangle {
                     briCmdThrottle.targetPct = -1;
                     let target = panel.sysBrightness > 0 ? 0 : 100;
                     panel.sysBrightness = target;
-                    Quickshell.execDetached(["bash", Caching.qsDir + "/../scripts/brightness.sh", "set", target.toString()]);
+                    Quickshell.execDetached(["serpantinum-core", "brightness", "set", target.toString()]);
                 }
             }
 
             Timer {
                 id: briCmdThrottle
-                interval: 400
+                interval: 120
                 property int targetPct: -1
                 onTriggered: {
                     if (targetPct >= 0) {
-                        Quickshell.execDetached(["bash", Caching.qsDir + "/../scripts/brightness.sh", "set", targetPct.toString()]);
+                        Quickshell.execDetached(["serpantinum-core", "brightness", "set", targetPct.toString()]);
                         targetPct = -1;
                     }
                 }
@@ -194,7 +202,7 @@ Rectangle {
                 onDragFinished: {
                     if (briCmdThrottle.targetPct >= 0) {
                         briCmdThrottle.stop();
-                        Quickshell.execDetached(["bash", Caching.qsDir + "/../scripts/brightness.sh", "set", briCmdThrottle.targetPct.toString()]);
+                        Quickshell.execDetached(["serpantinum-core", "brightness", "set", briCmdThrottle.targetPct.toString()]);
                         briCmdThrottle.targetPct = -1;
                     }
                     briSyncDelay.restart();
@@ -204,7 +212,7 @@ Rectangle {
                     panel.sysBrightness = pct;
                     briSlider.value = pct;
                     briCmdThrottle.targetPct = pct;
-                    if (!briSlider.isDragging) briCmdThrottle.restart();
+                    if (!briCmdThrottle.running) briCmdThrottle.start();
                 }
             }
         }

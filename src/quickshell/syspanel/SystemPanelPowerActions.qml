@@ -30,7 +30,7 @@ RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             radius: panel.boxRadius
-            clip: true
+            clip: !capsuleGlass.active
 
             property bool isHibernate: cmd === "hibernate"
             property bool isDisabled: isHibernate && !panel.canHibernate
@@ -43,10 +43,21 @@ RowLayout {
                 Translate { x: (panel.isLeftAnchored ? -panel.rowSlideDistance : panel.rowSlideDistance) * (1.0 - panel.introActions) }
             ]
 
-            color: (actionMa.containsMouse && !isDisabled) ? ThemeBackend.surface1 : Qt.darker(ThemeBackend.surface0, 1.04)
+            color: capsuleGlass.active ? "transparent" : ThemeBackend.faded((actionMa.containsMouse && !isDisabled) ? ThemeBackend.surface1 : Qt.darker(ThemeBackend.surface0, 1.04))
+
+            GlassFill {
+                id: capsuleGlass
+                anchors.fill: parent
+                radius: parent.radius
+                tintColor: (actionMa.containsMouse && !isDisabled) ? ThemeBackend.surface1 : ThemeBackend.surface0
+                tintAmount: 0.3
+                press: (actionMa.pressed && !isDisabled) ? 0.6 + 0.4 * actionCapsule.fillLevel : ((actionMa.containsMouse && !isDisabled) ? 0.25 : 0)
+                pulse: Math.min(1, actionCapsule.flashOpacity * 2.5)
+                Behavior on press { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+            }
             Behavior on color {
                 enabled: panel.visible
-                ColorAnimation { duration: 200 }
+                ColorAnimation { duration: 250 }
             }
 
             scale: (actionMa.pressed && !isDisabled) ? (0.98 - (0.01 * weight)) : ((actionMa.containsMouse && !isDisabled) ? 1.02 : 1.0)
@@ -93,7 +104,7 @@ RowLayout {
             FluidWave {
                 id: actionWaveCanvas
                 anchors.fill: parent
-                visible: panel.visible && actionCapsule.fillLevel > 0.001
+                visible: panel.visible && actionCapsule.fillLevel > 0.001 && !capsuleGlass.active
 
                 property real wavePhase: 0.0
                 NumberAnimation on wavePhase {
@@ -111,9 +122,28 @@ RowLayout {
                 color2: color1
             }
 
+            LiquidFill {
+                anchors.centerIn: parent
+                width: parent.height
+                height: parent.width
+                rotation: -90
+                radius: actionCapsule.radius
+                fillLevel: actionCapsule.fillLevel
+                waveAmp: actionWaveCanvas.waveAmp
+                phase: actionWaveCanvas.wavePhase
+                color1: Qt.lighter(actionWaveCanvas.color1, 1.1)
+                color2: actionWaveCanvas.color1
+                bodyAlpha: 0.4
+                visible: capsuleGlass.active && actionCapsule.fillLevel > 0.001
+                property real lift: (actionCapsule.fillLevel > 0.001 && actionCapsule.fillLevel < 0.999) ? 1.0 : 0.0
+                Behavior on lift { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+                scale: 1.0 + 0.07 * lift
+            }
+
             Rectangle {
                 anchors.fill: parent; radius: actionCapsule.radius; color: "#ffffff"
                 opacity: actionCapsule.flashOpacity
+                visible: !capsuleGlass.active
                 PropertyAnimation on opacity { id: cardFlashAnim; to: 0; duration: 500; easing.type: Easing.OutExpo }
             }
 
@@ -124,7 +154,7 @@ RowLayout {
                 radius: actionCapsule.radius
                 Behavior on opacity {
                     enabled: panel.visible
-                    NumberAnimation { duration: 200 }
+                    NumberAnimation { duration: 250 }
                 }
                 z: 4
             }
@@ -151,7 +181,7 @@ RowLayout {
                     y: (actionCapsule.height / 2) - (height / 2) - (actionCapsule.height - parent.height)
                     font.family: ThemeBackend.iconFont
                     font.pixelSize: panel.s(19)
-                    color: ThemeBackend.crust
+                    color: capsuleGlass.active ? ThemeBackend.text : ThemeBackend.crust
                     text: icon
                 }
             }
@@ -166,10 +196,11 @@ RowLayout {
                     if (isDisabled) {
                         actionCapsule.triggerError();
                         Quickshell.execDetached([
-                            "notify-send",
-                            "-a", I18n.t("syspanel.actions.system_name"),
-                            "-u", "normal",
-                            "-i", "dialog-warning",
+                            "serpantinum-core", "notify",
+                            "--app", I18n.t("syspanel.actions.system_name"),
+                            "--urgency", "normal",
+                            "--icon", "dialog-warning",
+                            "--",
                             I18n.t("syspanel.actions.hibernate_error_title"),
                             I18n.t("syspanel.actions.hibernate_error_body")
                         ]);
@@ -241,7 +272,6 @@ RowLayout {
                     }
                     let scriptPath = cmd === "lock" ? Caching.serpantinumDir + "/scripts/lock.sh" : Caching.serpantinumDir + "/scripts/system/" + (cmd === "sleep" ? "suspend.sh" : cmd + ".sh");
                     Quickshell.execDetached(["bash", scriptPath]);
-                    Quickshell.execDetached(["sh", "-c", "echo 'close' > " + Caching.runDir + "/widget_state"]);
 
                     actionCapsule.fillLevel = 0.0;
                     actionCapsule.triggered = false;

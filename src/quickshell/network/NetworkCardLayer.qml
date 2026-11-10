@@ -214,9 +214,12 @@ Item {
 
             property color dynamicTextColor: {
                 if (isFailed) return ThemeBackend.red;
-                if (isHighlighted) return window.activeColor;
+                if (isHighlighted && !ThemeBackend.liquidGlass) return window.activeColor;
                 return ThemeBackend.text;
             }
+
+            property bool isAccentGlass: ThemeBackend.liquidGlass && (isHighlighted || isCurrentlyConnected)
+            property color filledContentColor: ThemeBackend.liquidGlass ? ThemeBackend.text : ThemeBackend.crust
 
             function handleTrigger() {
                 let currentCmd = typeof cmdStr !== "undefined" ? cmdStr : "";
@@ -265,7 +268,7 @@ Item {
                     }
                 } else {
                     let sec = typeof security !== "undefined" && security ? security.trim().toLowerCase() : "";
-                    let isSecure = sec !== "" && sec !== "open" && sec !== "--" && sec !== "none";
+                    let isSecure = sec !== "" && sec !== "open" && sec !== "owe" && sec !== "--" && sec !== "none";
                     let isSaved = false;
                     if (window.wifiDevice && window.wifiDevice.networks) {
                         let nets = window.wifiDevice.networks.values;
@@ -284,6 +287,13 @@ Item {
                 }
             }
 
+            Rectangle {
+                anchors.fill: parent
+                radius: ThemeBackend.borderRadius
+                color: Qt.alpha("#000000", 0.28)
+                visible: ThemeBackend.liquidGlass
+            }
+
             FillButton {
                 id: fillBtn
                 visible: isMyActionable
@@ -294,10 +304,11 @@ Item {
                 buttonText: ""
                 buttonIcon: ""
                 accentColor: window.activeColor
-                baseColor: ThemeBackend.base
-                hoverColor: ThemeBackend.surface0
+                baseColor: isAccentGlass ? window.activeColor : ThemeBackend.base
+                hoverColor: isAccentGlass ? window.activeColor : ThemeBackend.surface0
+                bgOpacity: isAccentGlass ? 2.0 : ThemeBackend.elementOpacity
                 textColor: dynamicTextColor
-                filledTextColor: ThemeBackend.crust
+                filledTextColor: filledContentColor
                 action_highlight: isHighlighted
                 contentAlignment: Qt.AlignLeft
                 horizontalPadding: window.s(10)
@@ -313,7 +324,9 @@ Item {
                 enabled: !isMyBusy && !window.isBtOpBusy(itemId)
                 anchors.fill: parent
                 cornerRadius: ThemeBackend.borderRadius
-                accentColor: ThemeBackend.surface0
+                accentColor: isAccentGlass ? window.activeColor : ThemeBackend.surface0
+                glassTintScale: isAccentGlass ? 2.6 : 1.0
+                bgOpacity: ThemeBackend.elementOpacity
                 textColor: dynamicTextColor
                 action_highlight: isHighlighted
                 buttonText: ""
@@ -341,11 +354,11 @@ Item {
                             id: overlayIcon
                             visible: myButtonIcon !== ""
                             text: myButtonIcon
-                            font.family: "Iosevka Nerd Font"
+                            font.family: ThemeBackend.iconFont
                             font.pixelSize: window.s(18)
                             color: dynamicTextColor
                             anchors.verticalCenter: parent.verticalCenter
-                            Behavior on color { enabled: window.visible; ColorAnimation { duration: 200 } }
+                            Behavior on color { enabled: window.visible; ColorAnimation { duration: 250 } }
                         }
 
                         MarqueeText {
@@ -360,7 +373,7 @@ Item {
                             marqueeSpacing: window.s(30)
                             active: window.visible
 
-                            Behavior on color { enabled: window.visible; ColorAnimation { duration: 200 } }
+                            Behavior on color { enabled: window.visible; ColorAnimation { duration: 250 } }
                         }
                     }
                 }
@@ -393,9 +406,9 @@ Item {
                                 Text {
                                     visible: myButtonIcon !== ""
                                     text: myButtonIcon
-                                    font.family: "Iosevka Nerd Font"
+                                    font.family: ThemeBackend.iconFont
                                     font.pixelSize: window.s(18)
-                                    color: ThemeBackend.crust
+                                    color: floatCardDelegateContainer.filledContentColor
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
 
@@ -418,7 +431,7 @@ Item {
                                                 font.family: ThemeBackend.fontFamily
                                                 font.weight: Font.Bold
                                                 font.pixelSize: window.s(12)
-                                                color: ThemeBackend.crust
+                                                color: floatCardDelegateContainer.filledContentColor
                                             }
 
                                             Text {
@@ -426,7 +439,7 @@ Item {
                                                 font.family: ThemeBackend.fontFamily
                                                 font.weight: Font.Bold
                                                 font.pixelSize: window.s(12)
-                                                color: ThemeBackend.crust
+                                                color: floatCardDelegateContainer.filledContentColor
                                                 visible: marqueeClip.canMarquee
                                             }
                                         }

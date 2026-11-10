@@ -6,3 +6,9 @@ AGENTS.md
 .claude/
 
 __pycache__/
+
+.omc/
+
+bin/serpantinum-audio
+
+.backup/

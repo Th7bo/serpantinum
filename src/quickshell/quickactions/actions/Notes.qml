@@ -5,13 +5,14 @@ import Quickshell
 import Quickshell.Io
 import "../../reusables"
 import "../../"
+import "NotesFormat.js" as NotesFormat
 
 Item {
     id: root
 
     property int requestedLayoutTemplate: 1
     property bool isActiveTab: typeof isCurrentTarget !== "undefined" ? isCurrentTarget : true
-    property string nerdFont: "Iosevka Nerd Font"
+    property string nerdFont: ThemeBackend.iconFont
     property string safeActiveEdge: typeof activeEdge !== "undefined" ? activeEdge : "left"
 
     property bool stateLoaded: false
@@ -131,81 +132,27 @@ Item {
     property real currentTimeTicker: 0
     Timer {
         interval: 10000
-        running: true
+        running: root.visible
         repeat: true
+        triggeredOnStart: true
         onTriggered: root.currentTimeTicker = Date.now()
     }
 
     function formatRelativeTime(timestamp) {
-        if (!timestamp) return "";
-        let now = new Date();
-        let notifDate = new Date(timestamp);
-        let diffSec = Math.floor((now.getTime() - notifDate.getTime()) / 1000);
-
         let fmt = (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.bar && Config.rawSettings.bar.time && Config.rawSettings.bar.time.format !== undefined) ? Config.rawSettings.bar.time.format : "HH:mm";
-        let timePart = "HH:mm";
-        if (fmt.indexOf("hh:") !== -1) {
-            timePart = Qt.formatDateTime(notifDate, "hh:mm AP");
-        } else {
-            timePart = Qt.formatDateTime(notifDate, "HH:mm");
-        }
-
-        if (diffSec < 60) {
-            return "Just now";
-        }
-
-        let diffMin = Math.floor(diffSec / 60);
-        if (diffMin < 60) {
-            return diffMin + " min ago";
-        }
-
-        let isSameDay = now.getFullYear() === notifDate.getFullYear() &&
-                        now.getMonth() === notifDate.getMonth() &&
-                        now.getDate() === notifDate.getDate();
-
-        let yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        let isYesterday = yesterday.getFullYear() === notifDate.getFullYear() &&
-                          yesterday.getMonth() === notifDate.getMonth() &&
-                          yesterday.getDate() === notifDate.getDate();
-
-        let diffDays = Math.floor(diffSec / 86400);
-
-        if (isSameDay) {
-            return timePart;
-        } else if (isYesterday) {
-            return "Yesterday " + timePart;
-        } else if (diffDays < 7) {
-            let dayName = Qt.formatDateTime(notifDate, "dddd");
-            return dayName + " " + timePart;
-        } else {
-            return Qt.formatDateTime(notifDate, "yyyy-MM-dd ") + timePart;
-        }
+        return NotesFormat.formatRelativeTime(timestamp, I18n, fmt);
     }
 
     function formatPreciseTime(timestamp) {
-        if (!timestamp) return "";
-        let d = new Date(timestamp);
-        return Qt.formatDateTime(d, "yyyy-MM-dd HH:mm:ss");
+        return NotesFormat.formatPreciseTime(timestamp);
     }
 
-    Process {
-        id: saveNotesProc
-    }
-
-    Process {
-        id: loadNotesProc
-        command: ["bash", "-c", "FILE='" + root.getStorageDir() + "/notes.json'; if [ -f \"$FILE\" ]; then cat \"$FILE\"; else echo '[]'; fi"]
-        stdout: StdioCollector {
-            id: loadNotesOut
-            onStreamFinished: {
-                root.restoreNotes(loadNotesOut.text);
-            }
-        }
-    }
-
-    Component.onCompleted: {
-        loadNotesProc.running = true;
+    FileView {
+        id: notesStore
+        printErrors: false
+        path: root.getStorageDir() + "/notes.json"
+        onLoaded: root.restoreNotes(text())
+        onLoadFailed: root.restoreNotes("")
     }
 
     function restoreNotes(rawText) {
@@ -223,11 +170,7 @@ Item {
 
     function saveNotes() {
         if (!root.stateLoaded) return;
-        let dir = root.getStorageDir();
-        let jsonStr = JSON.stringify(root.notesList);
-        saveNotesProc.running = false;
-        saveNotesProc.command = ["bash", "-c", "mkdir -p '" + dir + "' && echo '" + jsonStr.replace(/'/g, "'\\''") + "' > '" + dir + "/notes.json'"];
-        saveNotesProc.running = true;
+        notesStore.setText(JSON.stringify(root.notesList));
     }
 
     function isSelected(id) {
@@ -361,65 +304,8 @@ Item {
         root.expandProgress = 0.0;
     }
 
-    function formatInlineMarkdown(text) {
-        if (!text) return "";
-        let s = text;
-        s = s.replace(/`([^`]+)`/g, "<font color=\"#fab387\" face=\"monospace\"><b>$1</b></font>");
-        s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
-        s = s.replace(/__([^_]+)__/g, "<b>$1</b>");
-        s = s.replace(/\*([^*]+)\*/g, "<i>$1</i>");
-        s = s.replace(/_([^_]+)_/g, "<i>$1</i>");
-        s = s.replace(/~~([^~]+)~~/g, "<s>$1</s>");
-        return s;
-    }
-
     function markdownToHtml(md) {
-        if (!md) return "";
-        let lines = md.split("\n");
-        let out = [];
-        let inCode = false;
-        let codeLines = [];
-        for (let i = 0; i < lines.length; i++) {
-            let line = lines[i];
-            if (line.trim().indexOf("```") === 0) {
-                if (inCode) {
-                    out.push("<pre style=\"background-color:#181825;color:#cdd6f4;\"><code>" + codeLines.join("<br/>") + "</code></pre>");
-                    codeLines = [];
-                    inCode = false;
-                } else {
-                    inCode = true;
-                    codeLines = [];
-                }
-                continue;
-            }
-            if (inCode) {
-                let esc = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                codeLines.push(esc);
-                continue;
-            }
-            let esc = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            if (esc.indexOf("### ") === 0) {
-                out.push("<b><font size=\"+1\">" + formatInlineMarkdown(esc.substring(4)) + "</font></b>");
-            } else if (esc.indexOf("## ") === 0) {
-                out.push("<b><font size=\"+2\">" + formatInlineMarkdown(esc.substring(3)) + "</font></b>");
-            } else if (esc.indexOf("# ") === 0) {
-                out.push("<b><font size=\"+3\">" + formatInlineMarkdown(esc.substring(2)) + "</font></b>");
-            } else if (/^\s*[-*+]\s+/.test(esc)) {
-                let item = esc.replace(/^\s*[-*+]\s+/, "");
-                out.push("&nbsp;&nbsp;• " + formatInlineMarkdown(item));
-            } else if (/^\s*\d+\.\s+/.test(esc)) {
-                let m = esc.match(/^(\s*\d+\.)\s+(.*)$/);
-                out.push("&nbsp;&nbsp;" + (m ? m[1] + " " + formatInlineMarkdown(m[2]) : esc));
-            } else if (esc.indexOf("> ") === 0) {
-                out.push("<i><font color=\"#a6adc8\">│ " + formatInlineMarkdown(esc.substring(2)) + "</font></i>");
-            } else {
-                out.push(formatInlineMarkdown(esc));
-            }
-        }
-        if (inCode && codeLines.length > 0) {
-            out.push("<pre style=\"background-color:#181825;color:#cdd6f4;\"><code>" + codeLines.join("<br/>") + "</code></pre>");
-        }
-        return out.join("<br/>");
+        return NotesFormat.markdownToHtml(md);
     }
 
     Item {
@@ -432,7 +318,7 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: ThemeBackend.mantle
+            color: "transparent"
             radius: ThemeBackend.borderRadius
 
             Item {
@@ -463,6 +349,7 @@ Item {
                             iconFontSize: root.s(14)
                             textFontSize: root.s(12)
                             accentColor: ThemeBackend.surface0
+                            bgOpacity: ThemeBackend.elementOpacity
                             textColor: ThemeBackend.text
                             cornerRadius: root.s(10)
                             implicitHeight: root.s(32)
@@ -493,19 +380,20 @@ Item {
                             buttonIcon: "󰐃"
                             textColor: root.areSelectedNotesPinned ? ThemeBackend.mauve : ThemeBackend.subtext0
                             accentColor: root.areSelectedNotesPinned ? root.alpha(ThemeBackend.mauve, 0.2) : ThemeBackend.surface0
+                            bgOpacity: ThemeBackend.elementOpacity
                             Layout.alignment: Qt.AlignVCenter
                             onClicked: root.togglePinSelectedNotes()
                         }
 
-                        IconButton {
+                        CloseButton {
                             visible: root.selectedCount > 0
                             size: root.s(32)
                             cornerRadius: root.s(8)
                             iconFont: root.nerdFont
                             iconFontSize: root.s(15)
-                            buttonIcon: "󰅖"
                             textColor: ThemeBackend.subtext0
                             accentColor: ThemeBackend.surface0
+                            bgOpacity: ThemeBackend.elementOpacity
                             Layout.alignment: Qt.AlignVCenter
                             onClicked: root.clearSelection()
                         }
@@ -519,6 +407,7 @@ Item {
                             buttonIcon: "󰆴"
                             textColor: ThemeBackend.red
                             accentColor: root.alpha(ThemeBackend.red, 0.18)
+                            bgOpacity: ThemeBackend.elementOpacity
                             Layout.alignment: Qt.AlignVCenter
                             onClicked: root.deleteSelectedNotes()
                         }
@@ -575,28 +464,39 @@ Item {
                         id: noteDelegateWrapper
                         width: notesListView.width
 
-                        readonly property bool isSelected: root.isSelected(modelData.id)
+                        readonly property bool isSelected: root && modelData ? root.isSelected(modelData.id) : false
                         readonly property bool isTargetNote: root.editingNoteId === modelData.id
                         property real relativeUpdateTracker: root.currentTimeTicker
 
                         height: isTargetNote ? (root.s(54) + (root.s(130) - root.s(54)) * root.expandProgress) : root.s(54)
 
                         scale: itemMouseArea.pressed ? 0.98 : 1.0
-                        Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
                         Rectangle {
                             id: noteItemCard
                             anchors.fill: parent
                             radius: ThemeBackend.borderRadius
-                            color: {
+                            readonly property color legacyColor: {
                                 if (noteDelegateWrapper.isSelected) {
                                     return ThemeBackend.mauve;
                                 }
-                                return itemMouseArea.containsMouse ? Qt.lighter(ThemeBackend.surface1, 1.04) : ThemeBackend.surface1;
+                                return Qt.alpha(itemMouseArea.containsMouse ? Qt.lighter(ThemeBackend.surface1, 1.04) : ThemeBackend.surface1, ThemeBackend.elementOpacity);
                             }
+                            color: noteGlass.active ? "transparent" : legacyColor
                             clip: true
 
-                            Behavior on color { ColorAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                            GlassFill {
+                                id: noteGlass
+                                anchors.fill: parent
+                                radius: parent.radius
+                                tintColor: noteDelegateWrapper.isSelected ? ThemeBackend.mauve : ThemeBackend.surface1
+                                tintAmount: noteDelegateWrapper.isSelected ? 0.5 : 0.3
+                                press: itemMouseArea.pressed ? 0.8 : (itemMouseArea.containsMouse ? 0.2 : 0)
+                                Behavior on press { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+                            }
+
+                            Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
                             RowLayout {
                                 anchors.fill: parent
@@ -615,7 +515,7 @@ Item {
                                         radius: root.s(8)
                                         color: noteDelegateWrapper.isSelected
                                             ? Qt.rgba(0, 0, 0, 0.15)
-                                            : ThemeBackend.surface2
+                                            : Qt.alpha(ThemeBackend.surface2, ThemeBackend.elementOpacity)
 
                                         Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
@@ -623,7 +523,7 @@ Item {
                                             anchors.centerIn: parent
                                             font.family: root.nerdFont
                                             font.pixelSize: root.s(14)
-                                            color: noteDelegateWrapper.isSelected ? ThemeBackend.crust : ThemeBackend.subtext0
+                                            color: (noteDelegateWrapper.isSelected && !noteGlass.active) ? ThemeBackend.crust : (noteDelegateWrapper.isSelected ? ThemeBackend.text : ThemeBackend.subtext0)
                                             text: "󰈙"
 
                                             Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
@@ -638,7 +538,7 @@ Item {
 
                                     Text {
                                         text: modelData.title || I18n.t("quickactions.notes.new_note_title")
-                                        color: noteDelegateWrapper.isSelected ? ThemeBackend.crust : ThemeBackend.text
+                                        color: (noteDelegateWrapper.isSelected && !noteGlass.active) ? ThemeBackend.crust : ThemeBackend.text
                                         font.family: ThemeBackend.fontFamily
                                         font.pixelSize: root.s(12)
                                         font.weight: noteDelegateWrapper.isSelected ? Font.Bold : Font.Medium
@@ -653,7 +553,7 @@ Item {
                                             let c = (modelData.content || "").replace(/\n/g, " ").trim();
                                             return c.length > 0 ? c : "...";
                                         }
-                                        color: noteDelegateWrapper.isSelected ? ThemeBackend.crust : ThemeBackend.subtext0
+                                        color: (noteDelegateWrapper.isSelected && !noteGlass.active) ? ThemeBackend.crust : (noteDelegateWrapper.isSelected ? ThemeBackend.text : ThemeBackend.subtext0)
                                         opacity: noteDelegateWrapper.isSelected ? 0.9 : 0.85
                                         font.family: ThemeBackend.fontFamily
                                         font.pixelSize: root.s(10)
@@ -671,7 +571,7 @@ Item {
 
                                     Text {
                                         text: root.formatRelativeTime(modelData.updatedAt)
-                                        color: noteDelegateWrapper.isSelected ? ThemeBackend.crust : ThemeBackend.subtext1
+                                        color: (noteDelegateWrapper.isSelected && !noteGlass.active) ? ThemeBackend.crust : (noteDelegateWrapper.isSelected ? ThemeBackend.text : ThemeBackend.subtext1)
                                         font.family: ThemeBackend.fontFamily
                                         font.pixelSize: root.s(10)
 
@@ -683,6 +583,7 @@ Item {
                                         size: root.s(26)
                                         cornerRadius: root.s(6)
                                         accentColor: ThemeBackend.surface2
+                                        bgOpacity: ThemeBackend.elementOpacity
                                         iconColor: isHoveredOrHighlighted ? ThemeBackend.text : ThemeBackend.subtext1
                                         autoToggle: false
                                         flipped: isTargetNote && root.expandProgress > 0.5
@@ -818,9 +719,17 @@ Item {
                     id: editorCard
                     anchors.fill: parent
                     anchors.margins: root.s(8)
-                    color: ThemeBackend.surface1
+                    color: editorGlass.active ? "transparent" : Qt.alpha(ThemeBackend.surface1, ThemeBackend.elementOpacity)
                     radius: ThemeBackend.borderRadius
                     clip: true
+
+                    GlassFill {
+                        id: editorGlass
+                        anchors.fill: parent
+                        radius: parent.radius
+                        tintColor: ThemeBackend.surface1
+                        tintAmount: 0.3
+                    }
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -836,15 +745,15 @@ Item {
                                 anchors.fill: parent
                                 spacing: root.s(8)
 
-                                IconButton {
+                                CloseButton {
                                     id: closeBtn
                                     size: root.s(32)
                                     cornerRadius: root.s(8)
                                     iconFont: root.nerdFont
                                     iconFontSize: root.s(15)
-                                    buttonIcon: "󰅖"
                                     textColor: ThemeBackend.text
                                     accentColor: ThemeBackend.surface2
+                                    bgOpacity: ThemeBackend.elementOpacity
                                     Layout.alignment: Qt.AlignVCenter
                                     onClicked: root.saveCurrentNote()
                                 }
@@ -946,6 +855,7 @@ Item {
                                     buttonIcon: "󰐃"
                                     textColor: root.editingNotePinned ? ThemeBackend.mauve : ThemeBackend.subtext0
                                     accentColor: root.editingNotePinned ? root.alpha(ThemeBackend.mauve, 0.2) : ThemeBackend.surface2
+                                    bgOpacity: ThemeBackend.elementOpacity
                                     Layout.alignment: Qt.AlignVCenter
                                     onClicked: root.editingNotePinned = !root.editingNotePinned
                                 }
@@ -959,6 +869,7 @@ Item {
                                     buttonIcon: root.isMarkdownPreview ? "󰈙" : "󰂺"
                                     textColor: root.isMarkdownPreview ? ThemeBackend.mauve : ThemeBackend.subtext0
                                     accentColor: root.isMarkdownPreview ? root.alpha(ThemeBackend.mauve, 0.2) : ThemeBackend.surface2
+                                    bgOpacity: ThemeBackend.elementOpacity
                                     Layout.alignment: Qt.AlignVCenter
                                     onClicked: root.isMarkdownPreview = !root.isMarkdownPreview
                                 }
@@ -971,6 +882,7 @@ Item {
                                     iconFontSize: root.s(13)
                                     textFontSize: root.s(12)
                                     accentColor: ThemeBackend.mauve
+                                    bgOpacity: ThemeBackend.elementOpacity
                                     textColor: ThemeBackend.base
                                     cornerRadius: root.s(8)
                                     implicitHeight: root.s(32)
@@ -989,6 +901,7 @@ Item {
                                 id: nameInput
                                 anchors.fill: parent
                                 baseColor: ThemeBackend.surface0
+                                bgOpacity: ThemeBackend.elementOpacity
                                 textColor: ThemeBackend.text
                                 placeholderText: I18n.t("quickactions.notes.title_placeholder")
                                 cornerRadius: root.s(8)
@@ -1002,7 +915,7 @@ Item {
                                 id: previewTitleBar
                                 anchors.fill: parent
                                 radius: root.s(8)
-                                color: ThemeBackend.surface0
+                                color: Qt.alpha(ThemeBackend.surface0, ThemeBackend.elementOpacity)
                                 visible: root.isMarkdownPreview
 
                                 Text {
@@ -1041,6 +954,7 @@ Item {
                                 id: contentInput
                                 anchors.fill: parent
                                 baseColor: ThemeBackend.surface0
+                                bgOpacity: ThemeBackend.elementOpacity
                                 textColor: ThemeBackend.text
                                 placeholderText: I18n.t("quickactions.notes.content_placeholder")
                                 cornerRadius: root.s(8)
@@ -1053,7 +967,7 @@ Item {
                             Rectangle {
                                 id: previewContainer
                                 anchors.fill: parent
-                                color: ThemeBackend.surface0
+                                color: Qt.alpha(ThemeBackend.surface0, ThemeBackend.elementOpacity)
                                 radius: root.s(8)
                                 visible: root.isMarkdownPreview
 

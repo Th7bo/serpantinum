@@ -13,6 +13,9 @@ Item {
     property var module: null
     property var widget: module
 
+    property string orientation: (activeTarget && activeTarget.orientation !== undefined) ? activeTarget.orientation : "horizontal"
+    readonly property bool isVertical: orientation === "vertical"
+
     readonly property var activeTarget: widget || module
     readonly property bool isCompact: activeTarget ? activeTarget.isCompact : false
     readonly property var barWindow: activeTarget ? activeTarget.barWindow : null
@@ -21,7 +24,6 @@ Item {
     property bool showLayout: isPreview || !barWindow || barWindow.isStartupReady
     property bool isVisVisible: (activeTarget ? activeTarget.moduleActive : true) && showLayout
     property bool isFaceVisible: showLayout
-    property bool isSubscribed: false
     readonly property bool shouldSubscribe: isVisVisible
 
     property int configRevision: 0
@@ -36,23 +38,23 @@ Item {
         if (widget && widget !== root && widget.barCount !== undefined) return widget.barCount;
         if (module && module.barCount !== undefined) return module.barCount;
         let dummy = configRevision;
-        if (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.bar) {
-            let bs = Config.rawSettings.bar;
+        if (typeof Config !== "undefined" && Config.rawSettings) {
+            let bs = Config.rawSettings.bar || {};
             if (bs.visBarCount !== undefined) return Math.max(4, Math.min(64, bs.visBarCount));
-            if (bs.vis && bs.vis.barCount !== undefined) return Math.max(4, Math.min(64, bs.vis.barCount));
-            if (bs.visBars !== undefined) return Math.max(4, Math.min(64, bs.visBars));
+            if (!isVertical && bs.vis && bs.vis.barCount !== undefined) return Math.max(4, Math.min(64, bs.vis.barCount));
+            if (!isVertical && bs.visBars !== undefined) return Math.max(4, Math.min(64, bs.visBars));
         }
-        return 16;
+        return isVertical ? 12 : 16;
     }
 
     property string visAlignment: {
         if (widget && widget !== root && widget.visAlignment !== undefined) return widget.visAlignment;
         if (module && module.visAlignment !== undefined) return module.visAlignment;
         let dummy = configRevision;
-        if (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.bar) {
-            let bs = Config.rawSettings.bar;
+        if (typeof Config !== "undefined" && Config.rawSettings) {
+            let bs = Config.rawSettings.bar || {};
             if (bs.visAlignment) return bs.visAlignment;
-            if (bs.vis && bs.vis.alignment) return bs.vis.alignment;
+            if (!isVertical && bs.vis && bs.vis.alignment) return bs.vis.alignment;
         }
         return "center";
     }
@@ -61,25 +63,21 @@ Item {
         if (widget && widget !== root && widget.visContinuous !== undefined) return widget.visContinuous;
         if (module && module.visContinuous !== undefined) return module.visContinuous;
         let dummy = configRevision;
-        if (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.bar) {
-            let bs = Config.rawSettings.bar;
+        if (typeof Config !== "undefined" && Config.rawSettings) {
+            let bs = Config.rawSettings.bar || {};
             if (bs.visContinuous !== undefined) return Boolean(bs.visContinuous);
-            if (bs.vis && bs.vis.continuous !== undefined) return Boolean(bs.vis.continuous);
-            if (bs.visStyle !== undefined) return bs.visStyle === "continuous";
+            if (!isVertical && bs.vis && bs.vis.continuous !== undefined) return Boolean(bs.vis.continuous);
+            if (!isVertical && bs.visStyle !== undefined) return bs.visStyle === "continuous";
         }
         return false;
     }
 
-    onShouldSubscribeChanged: updateSubscription()
-
-    function updateSubscription() {
-        if (shouldSubscribe && !isSubscribed) {
-            isSubscribed = true;
-            Cava.registerConsumer();
-        } else if (!shouldSubscribe && isSubscribed) {
-            isSubscribed = false;
-            Cava.unregisterConsumer();
-        }
+    SubscriptionGate {
+        id: spectrumGate
+        target: Spectrum
+        acquire: "registerConsumer"
+        release: "unregisterConsumer"
+        wanted: root.shouldSubscribe
     }
 
     Connections {
@@ -95,27 +93,20 @@ Item {
         if (!barWindow || barWindow.isStartupReady) {
             root.showLayout = true;
         }
-        updateSubscription();
-    }
-
-    Component.onDestruction: {
-        if (isSubscribed) {
-            isSubscribed = false;
-            Cava.unregisterConsumer();
-        }
     }
 
     property int sampleCount: Math.max(16, Math.min(128, root.barCount * 2))
 
-    readonly property real barW: barWindow ? barWindow.s(root.isCompact ? 4 : 5) : (root.isCompact ? 4 : 5)
-    readonly property real barSp: barWindow ? barWindow.s(root.isCompact ? 3 : 4) : (root.isCompact ? 3 : 4)
-    readonly property real contentWidth: root.barCount * barW + Math.max(0, root.barCount - 1) * barSp
-    readonly property real paddingH: barWindow ? barWindow.s(root.isCompact ? 20 : 24) : (root.isCompact ? 20 : 24)
+    readonly property real barThickness: isVertical ? (barWindow ? barWindow.cs(root.isCompact ? 3 : 4) : (root.isCompact ? 3 : 4)) : (barWindow ? barWindow.cs(root.isCompact ? 4 : 5) : (root.isCompact ? 4 : 5))
+    readonly property real barSp: barWindow ? barWindow.cs(root.isCompact ? 3 : 4) : (root.isCompact ? 3 : 4)
+    readonly property real contentLength: root.barCount * barThickness + Math.max(0, root.barCount - 1) * barSp
+    readonly property real padding: isVertical ? (barWindow ? barWindow.cs(root.isCompact ? 18 : 22) : (root.isCompact ? 18 : 22)) : (barWindow ? barWindow.cs(root.isCompact ? 20 : 24) : (root.isCompact ? 20 : 24))
 
-    property real targetWidth: ((activeTarget ? activeTarget.moduleActive : true) && contentWidth > 0) ? (contentWidth + paddingH) : 0
+    property real targetLength: ((activeTarget ? activeTarget.moduleActive : true) && contentLength > 0) ? (contentLength + padding) : 0
 
-    implicitWidth: targetWidth
-    implicitHeight: (barWindow && typeof barWindow.s === "function") ? barWindow.s(root.isCompact ? 24 : 32) : (root.isCompact ? 24 : 32)
+    readonly property real crossSize: (barWindow && typeof barWindow.s === "function") ? barWindow.cs(root.isCompact ? 24 : 32) : (root.isCompact ? 24 : 32)
+    implicitWidth: isVertical ? crossSize : targetLength
+    implicitHeight: isVertical ? targetLength : crossSize
 
     Timer {
         running: (activeTarget ? activeTarget.moduleActive : true) && barWindow && !root.showLayout
@@ -128,10 +119,11 @@ Item {
     }
 
     Visualizer {
-        width: root.contentWidth
-        height: Math.max(14, root.height - (root.barWindow ? root.barWindow.s(8) : 8))
+        width: root.isVertical ? Math.max(14, root.width - (root.barWindow ? root.barWindow.cs(8) : 8)) : root.contentLength
+        height: root.isVertical ? root.contentLength : Math.max(14, root.height - (root.barWindow ? root.barWindow.cs(8) : 8))
         anchors.centerIn: parent
-        active: root.isSubscribed
+        vertical: root.isVertical
+        active: spectrumGate.active
         continuous: root.visContinuous
         alignment: (root.visAlignment === "top" || root.visAlignment === "left")
             ? "start"
@@ -149,9 +141,9 @@ Item {
         rise: root.visContinuous ? 0.25 : 0.5
         fall: root.visContinuous ? 0.12 : 0.5
 
-        maxLength: root.visContinuous ? height - 2 : height
+        maxLength: root.visContinuous ? (root.isVertical ? width : height) - 2 : (root.isVertical ? width : height)
         spacing: root.barSp
-        minLength: root.barWindow ? root.barWindow.s(root.isCompact ? 3 : 4) : (root.isCompact ? 3 : 4)
+        minLength: root.barWindow ? root.barWindow.cs(root.isCompact ? 3 : 4) : (root.isCompact ? 3 : 4)
         opacityBase: 0.45
         opacityRange: 0.55
         opacity: root.visContinuous ? 0.55 + Math.min(0.45, energy * 0.75) : 1.0

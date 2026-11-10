@@ -12,7 +12,7 @@ Item {
 
     property bool isActiveTab: typeof isCurrentTarget !== "undefined" ? isCurrentTarget : true
 
-    property string iconFont: "Font Awesome 6 Free Solid"
+    property string iconFont: ThemeBackend.iconFont
     property string safeActiveEdge: typeof activeEdge !== "undefined" ? activeEdge : "left"
 
     function s(val) {
@@ -67,7 +67,8 @@ Item {
     property color solidBgColor: ThemeBackend.mantle
     property color themeBaseColor: ThemeBackend.base
     
-    property color panelBgColor: Qt.rgba(themeBaseColor.r, themeBaseColor.g, themeBaseColor.b, 0.85)
+    property color panelBgColor: Qt.rgba(themeBaseColor.r, themeBaseColor.g, themeBaseColor.b, ThemeBackend.glassActive ? ThemeBackend.elementOpacity : 0.85)
+    property color popupBgColor: Qt.rgba(themeBaseColor.r, themeBaseColor.g, themeBaseColor.b, ThemeBackend.glassActive ? ThemeBackend.elementOpacity : 0.98)
     property color panelBorderColor: Qt.rgba(baseTextColor.r, baseTextColor.g, baseTextColor.b, 0.15)
 
     property real minZoom: 0.1
@@ -76,7 +77,10 @@ Item {
 
     property var actionHistory: []
     property int historyStep: -1
-    property int maxHistory: 50
+    property int maxHistory: 100
+    property int lockedCount: 0
+    readonly property bool canUndo: historyStep >= lockedCount
+    readonly property bool canRedo: historyStep < actionHistory.length - 1
     property var currentAction: null
 
     property var colorPalettes: [
@@ -109,15 +113,14 @@ Item {
     FileView {
         id: palettesFile
         path: Caching.getStateDir("quickactions") + "/palettes.json"
-        onDataChanged: {
-            if (data) {
-                try {
-                    let parsed = JSON.parse(data);
-                    if (parsed && parsed.length > 0) {
-                        root.colorPalettes = parsed;
-                    }
-                } catch(e) {}
-            }
+        printErrors: false
+        onLoaded: {
+            try {
+                let parsed = JSON.parse(text());
+                if (parsed && parsed.length > 0) {
+                    root.colorPalettes = parsed;
+                }
+            } catch(e) {}
         }
     }
 
@@ -125,8 +128,7 @@ Item {
         id: paletteSaveTimer
         interval: 500
         onTriggered: {
-            let jsonStr = JSON.stringify(root.colorPalettes);
-            Quickshell.exec(["sh", "-c", "echo '" + jsonStr + "' > " + palettesFile.path]);
+            palettesFile.setText(JSON.stringify(root.colorPalettes) + "\n");
         }
     }
 
@@ -141,24 +143,27 @@ Item {
     function commitAction(action) {
         var newHistory = root.actionHistory.slice(0, root.historyStep + 1);
         newHistory.push(action);
-        
-        if (newHistory.length > root.maxHistory) {
-            newHistory.shift();
-        }
-        
+
         root.actionHistory = newHistory;
         root.historyStep = root.actionHistory.length - 1;
+        root.lockedCount = Math.max(root.lockedCount, root.actionHistory.length - root.maxHistory);
+    }
+
+    function finishStroke() {
+        if (!root.currentAction) return;
+        root.commitAction(root.currentAction);
+        root.currentAction = null;
     }
 
     function undo() {
-        if (root.historyStep >= 0) {
+        if (root.canUndo) {
             root.historyStep--;
             triggerReplay();
         }
     }
 
     function redo() {
-        if (root.historyStep < root.actionHistory.length - 1) {
+        if (root.canRedo) {
             root.historyStep++;
             triggerReplay();
         }
@@ -361,7 +366,14 @@ Item {
                         
                         if (_replayPending) {
                             ctx.clearRect(0, 0, width, height);
-                            for (var h = 0; h <= root.historyStep; h++) {
+                            var replayStart = 0;
+                            for (var c = root.historyStep; c >= 0; c--) {
+                                if (root.actionHistory[c] && root.actionHistory[c].type === "clear") {
+                                    replayStart = c;
+                                    break;
+                                }
+                            }
+                            for (var h = replayStart; h <= root.historyStep; h++) {
                                 var action = root.actionHistory[h];
                                 if (!action) continue;
 
@@ -422,6 +434,7 @@ Item {
                     }
 
                     MouseArea {
+                        id: drawArea
                         anchors.fill: parent
                         enabled: root.isActiveTab
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -447,7 +460,11 @@ Item {
                             }
                         }
 
-                        onPressed: (mouse) => {
+                        function isTouchSynth(mouse) {
+                            return mouse.source !== undefined && mouse.source !== Qt.MouseEventNotSynthesized;
+                        }
+
+                        function beginStroke(mouse) {
                             root.showSizeConfig = false;
                             root.showColorPicker = false;
                             
@@ -463,6 +480,7 @@ Item {
                                 return;
                             }
 
+                            root.finishStroke();
                             drawCanvas.lastX = mouse.x;
                             drawCanvas.lastY = mouse.y;
                             
@@ -490,8 +508,8 @@ Item {
                             drawCanvas.requestPaint();
                         }
 
-                        onPositionChanged: (mouse) => {
-                            if (pressed && root.currentTool !== "fill") {
+                        function extendStroke(mouse) {
+                            if (root.currentAction && root.currentTool !== "fill") {
                                 var segment = {
                                     x1: drawCanvas.lastX, y1: drawCanvas.lastY,
                                     x2: mouse.x, y2: mouse.y
@@ -524,10 +542,34 @@ Item {
                             }
                         }
 
-                        onReleased: (mouse) => {
-                            if (root.currentAction) {
-                                root.commitAction(root.currentAction);
-                                root.currentAction = null;
+                        onPressed: (mouse) => { if (!isTouchSynth(mouse)) beginStroke(mouse) }
+                        onPositionChanged: (mouse) => { if (pressed && !isTouchSynth(mouse)) extendStroke(mouse) }
+                        onReleased: (mouse) => { if (!isTouchSynth(mouse)) root.finishStroke() }
+                        onCanceled: root.finishStroke()
+                    }
+
+                    DragHandler {
+                        id: touchDraw
+                        target: null
+                        enabled: root.isActiveTab
+                        acceptedDevices: PointerDevice.TouchScreen | PointerDevice.Stylus
+                        dragThreshold: 0
+                        minimumPointCount: 1
+                        maximumPointCount: 1
+
+                        onActiveChanged: {
+                            if (active) {
+                                var p = centroid.position;
+                                drawArea.beginStroke({ x: p.x, y: p.y, button: Qt.LeftButton });
+                            } else {
+                                root.finishStroke();
+                            }
+                        }
+
+                        onCentroidChanged: {
+                            if (active) {
+                                var p = centroid.position;
+                                drawArea.extendStroke({ x: p.x, y: p.y });
                             }
                         }
                     }
@@ -549,8 +591,12 @@ Item {
                 height: s(44)
                 radius: ThemeBackend.borderRadius
                 color: root.panelBgColor
-                border.width: 1
-                border.color: root.panelBorderColor
+
+                WallpaperBlur {
+                    z: -1
+                    anchors.fill: parent
+                    radius: parent.radius
+                }
 
                 Row {
                     id: zoomRow
@@ -614,9 +660,9 @@ Item {
                     var outPath = outDir + "/drawing_" + Date.now() + ".png";
                     root.exportDrawing(outPath, function(success) {
                         if (success) {
-                            Quickshell.execDetached(["notify-send", "-a", I18n.t("quickactions.draw.notification.app_name") || "DrawAction", I18n.t("quickactions.draw.notification.saved_title") || "Drawing saved", outPath]);
+                            Quickshell.execDetached(["serpantinum-core", "notify", "--app", I18n.t("quickactions.draw.notification.app_name") || "DrawAction", "--", I18n.t("quickactions.draw.notification.saved_title") || "Drawing saved", outPath]);
                         } else {
-                            Quickshell.execDetached(["notify-send", "-a", I18n.t("quickactions.draw.notification.app_name") || "DrawAction", I18n.t("quickactions.draw.notification.failed_title") || "Export failed", I18n.t("quickactions.draw.notification.failed_body") || "Could not save drawing"]);
+                            Quickshell.execDetached(["serpantinum-core", "notify", "--app", I18n.t("quickactions.draw.notification.app_name") || "DrawAction", "--", I18n.t("quickactions.draw.notification.failed_title") || "Export failed", I18n.t("quickactions.draw.notification.failed_body") || "Could not save drawing"]);
                         }
                     });
                 }
@@ -635,9 +681,9 @@ Item {
                     root.exportDrawing(tempPath, function(success) {
                         if (success) {
                             Quickshell.execDetached(["sh", "-c", "if command -v wl-copy >/dev/null 2>&1; then wl-copy --type image/png < '" + tempPath + "'; fi"]);
-                            Quickshell.execDetached(["notify-send", "-a", I18n.t("quickactions.draw.notification.app_name") || "DrawAction", I18n.t("quickactions.draw.notification.copied_title") || "Drawing copied", I18n.t("quickactions.draw.notification.copied_body") || "Drawing copied to clipboard"]);
+                            Quickshell.execDetached(["serpantinum-core", "notify", "--app", I18n.t("quickactions.draw.notification.app_name") || "DrawAction", "--", I18n.t("quickactions.draw.notification.copied_title") || "Drawing copied", I18n.t("quickactions.draw.notification.copied_body") || "Drawing copied to clipboard"]);
                         } else {
-                            Quickshell.execDetached(["notify-send", "-a", I18n.t("quickactions.draw.notification.app_name") || "DrawAction", I18n.t("quickactions.draw.notification.failed_title") || "Export failed", I18n.t("quickactions.draw.notification.failed_body") || "Could not save drawing"]);
+                            Quickshell.execDetached(["serpantinum-core", "notify", "--app", I18n.t("quickactions.draw.notification.app_name") || "DrawAction", "--", I18n.t("quickactions.draw.notification.failed_title") || "Export failed", I18n.t("quickactions.draw.notification.failed_body") || "Could not save drawing"]);
                         }
                     });
                 }
@@ -650,9 +696,13 @@ Item {
             width: s(260)
             height: s(64)
             radius: ThemeBackend.borderRadius
-            color: Qt.rgba(ThemeBackend.base.r, ThemeBackend.base.g, ThemeBackend.base.b, 0.98)
-            border.width: 1
-            border.color: root.panelBorderColor
+            color: root.popupBgColor
+
+            WallpaperBlur {
+                z: -1
+                anchors.fill: parent
+                radius: parent.radius
+            }
             
             anchors.bottom: toolbar.top
             anchors.bottomMargin: s(12)
@@ -660,7 +710,7 @@ Item {
             
             visible: root.showSizeConfig
             opacity: visible ? 1.0 : 0.0
-            Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutExpo } }
+            Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
 
             RowLayout {
                 anchors.fill: parent
@@ -717,8 +767,6 @@ Item {
                     width: s(40)
                     height: s(28)
                     color: ThemeBackend.surface0
-                    border.width: 1
-                    border.color: ThemeBackend.surface1
                     radius: ThemeBackend.borderRadius
                     
                     TextInput {
@@ -770,8 +818,6 @@ Item {
                         height: width
                         radius: width / 2
                         color: root.currentTool === "eraser" ? "transparent" : root.currentColor
-                        border.width: 1
-                        border.color: Qt.rgba(root.baseTextColor.r, root.baseTextColor.g, root.baseTextColor.b, 0.2)
                     }
                 }
             }
@@ -783,9 +829,13 @@ Item {
             width: s(320)
             height: s(400)
             radius: ThemeBackend.borderRadius
-            color: Qt.rgba(ThemeBackend.base.r, ThemeBackend.base.g, ThemeBackend.base.b, 0.98)
-            border.width: 1
-            border.color: root.panelBorderColor
+            color: root.popupBgColor
+
+            WallpaperBlur {
+                z: -1
+                anchors.fill: parent
+                radius: parent.radius
+            }
             
             anchors.bottom: toolbar.top
             anchors.bottomMargin: s(12)
@@ -793,7 +843,7 @@ Item {
             
             visible: root.showColorPicker
             opacity: visible ? 1.0 : 0.0
-            Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutExpo } }
+            Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
 
             Column {
                 anchors.centerIn: parent
@@ -808,12 +858,10 @@ Item {
                         radius: ThemeBackend.borderRadius
                         color: Qt.hsva(root.activeColorSlot === 0 ? root.primaryHSV.h : root.secondaryHSV.h, 1, 1, 1)
                         clip: true
-                        border.width: 0
 
                         Rectangle {
                             anchors.fill: parent
                             radius: parent.radius
-                            border.width: 0
                             gradient: Gradient {
                                 orientation: Gradient.Horizontal
                                 GradientStop { position: 0.0; color: "white" }
@@ -823,7 +871,6 @@ Item {
                         Rectangle {
                             anchors.fill: parent
                             radius: parent.radius
-                            border.width: 0
                             gradient: Gradient {
                                 orientation: Gradient.Vertical
                                 GradientStop { position: 0.0; color: "transparent" }
@@ -941,8 +988,6 @@ Item {
                             radius: width / 2
                             color: modelData
                             
-                            border.width: root.currentColor.toString() === color.toString() ? s(2) : 0
-                            border.color: root.baseTextColor
                             
                             MouseArea {
                                 anchors.fill: parent
@@ -975,8 +1020,6 @@ Item {
                         width: s(120)
                         height: s(28)
                         color: ThemeBackend.surface0
-                        border.width: 1
-                        border.color: ThemeBackend.surface1
                         radius: ThemeBackend.borderRadius
                         
                         TextInput {
@@ -1012,8 +1055,12 @@ Item {
             radius: ThemeBackend.borderRadius
             
             color: root.panelBgColor
-            border.width: 1
-            border.color: root.panelBorderColor
+
+            WallpaperBlur {
+                z: -1
+                anchors.fill: parent
+                radius: parent.radius
+            }
 
             Row {
                 id: toolRow
@@ -1026,8 +1073,8 @@ Item {
                     cornerRadius: ThemeBackend.borderRadius
                     buttonIcon: "\uF0E2"
                     iconFontSize: root.s(14)
-                    enabled: root.historyStep >= 0
-                    accentColor: isHoveredOrHighlighted && root.historyStep >= 0 ? ThemeBackend.surface0 : "transparent"
+                    enabled: root.canUndo
+                    accentColor: isHoveredOrHighlighted && root.canUndo ? ThemeBackend.surface0 : "transparent"
                     textColor: root.baseTextColor
                     onClicked: root.undo()
                 }
@@ -1038,8 +1085,8 @@ Item {
                     cornerRadius: ThemeBackend.borderRadius
                     buttonIcon: "\uF01E"
                     iconFontSize: root.s(14)
-                    enabled: root.historyStep < root.actionHistory.length - 1
-                    accentColor: isHoveredOrHighlighted && root.historyStep < root.actionHistory.length - 1 ? ThemeBackend.surface0 : "transparent"
+                    enabled: root.canRedo
+                    accentColor: isHoveredOrHighlighted && root.canRedo ? ThemeBackend.surface0 : "transparent"
                     textColor: root.baseTextColor
                     onClicked: root.redo()
                 }
@@ -1097,7 +1144,7 @@ Item {
                             model: [
                                 { id: "pen", icon: "\uF040" },
                                 { id: "brush", icon: "\uF1FC" },
-                                { id: "fill", icon: "\uF576" },
+                                { id: "fill", icon: "\uF043" },
                                 { id: "eraser", icon: "\uF12D" }
                             ]
 
@@ -1149,8 +1196,6 @@ Item {
                             height: s(26)
                             radius: width / 2
                             color: root.primaryColor
-                            border.width: root.activeColorSlot === 0 ? s(2) : 1
-                            border.color: root.activeColorSlot === 0 ? root.baseTextColor : Qt.rgba(root.baseTextColor.r, root.baseTextColor.g, root.baseTextColor.b, 0.4)
                             anchors.verticalCenter: parent.verticalCenter
 
                             MouseArea {
@@ -1188,8 +1233,6 @@ Item {
                             height: s(26)
                             radius: width / 2
                             color: root.secondaryColor
-                            border.width: root.activeColorSlot === 1 ? s(2) : 1
-                            border.color: root.activeColorSlot === 1 ? root.baseTextColor : Qt.rgba(root.baseTextColor.r, root.baseTextColor.g, root.baseTextColor.b, 0.4)
                             anchors.verticalCenter: parent.verticalCenter
 
                             MouseArea {

@@ -69,6 +69,7 @@ The configuration file is located at `~/.config/serpantinum/settings.json` (or `
 | `theme.matugen` | `boolean` | `true` | Enables automatic Material You color extraction from the current wallpaper. |
 | `theme.mode` | `string` | `"dark"` | Color scheme mode used for Material You generation: `"dark"` or `"light"`. |
 | `theme.schemeType` | `string` | `"scheme-tonal-spot"` | Matugen scheme type used for Material You generation (e.g., `"scheme-tonal-spot"`). |
+| `theme.apps` | `string[]` | `["cava", "gtk", "kitty", "qt"]` | Apps recolored with the shell palette. See [App theming](./AppTheming.md). |
 | `theme.colors` | `object` | `{}` | Custom hex color overrides for palette roles (`base`, `surface0`, `surface1`, `surface2`, `text`, `mauve`, `blue`, `sapphire`, `green`, `peach`, `red`, `crust`, `mantle`). |
 | `wallpaperDir` | `string` | `"~/Pictures/Wallpapers"` | Directory scanned for desktop wallpapers in the wallpaper selector. |
 
@@ -93,14 +94,17 @@ The configuration file is located at `~/.config/serpantinum/settings.json` (or `
 | Key | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `bar.position` | `string` | `"top"` | Screen edge where the bar attaches: `"top"`, `"bottom"`, `"left"`, or `"right"`. |
-| `bar.width` | `number` | `100` | Bar length percentage (`10` to `100`). Values below 100 render a floating dock-style bar. |
+| `bar.width` | `number` | `100` | Bar length percentage (`10` to `100`). Values below 100 render a floating dock-style bar, or in `"fill"` style a bar that rounds down into the screen edge. |
 | `bar.opacity` | `number` | `100` | Background opacity percentage (`0` to `100`). |
 | `bar.style` | `string` | `"modular"` | Visual bar style: `"modular"`, `"fill"`, or `"solid"`. |
 | `bar.distinctPills` | `boolean` | `false` | Renders each module inside an isolated, detached capsule pill. |
+| `bar.centerByEdges` | `boolean` | `true` | Keeps equal margins on both ends of the bar (left and right, or top and bottom for a vertical bar) instead of centering by the middle module. |
 | `bar.autohide` | `boolean` | `false` | Automatically hides the bar until cursor enters the screen trigger area. |
 | `bar.autohideTimeout` | `number` | `1000` | Delay in milliseconds before hiding the bar after cursor leaves. |
 | `bar.workspaceCount` | `number` | `8` | Total number of persistent workspace indicators displayed. |
 | `bar.hideEmptyWorkspaces` | `boolean` | `false` | Hides workspace indicators that have no assigned windows. |
+| `bar.workspaces.perMonitorNumbering` | `boolean` | `false` | Hyprland only. Numbers workspaces from 1 within each monitor's own block of workspaces, for layouts like `1-10` on one monitor and `11-20` on another. |
+| `bar.workspaces.monitors` | `object` | `{}` | Per-monitor workspace blocks used by `perMonitorNumbering`, e.g. `{"eDP-1": {"first": 1, "count": 5}, "HDMI-A-1": {"first": 6, "count": 10}}`. Set from the Bar modules tab. Monitors without an entry keep global numbering. |
 | `bar.modules.left` | `array` | `["left", "workspaces", "media"]` | Modules positioned on the left/top section. Sub-arrays group modules into a shared pill. |
 | `bar.modules.center` | `array` | `[["timedate", "info", "weather"]]` | Modules positioned on the center section. |
 | `bar.modules.right` | `array` | `["tray", ["kb", "wifi", "bt", "vol", "bat"]]` | Modules positioned on the right/bottom section. |
@@ -119,7 +123,7 @@ The configuration file is located at `~/.config/serpantinum/settings.json` (or `
 | `bar.visContinuous` | `boolean` | `false` | Renders a continuous waveform line instead of discrete frequency bars. |
 | `bar.sysmonStyle` | `string` | `"wave"` | Resource monitor style: `"wave"`, `"circle"`, or `"bars"`. |
 | `bar.sysmonStats` | `array` | `["cpu", "ram", "temp"]` | Monitored resource metrics: subset of `["cpu", "ram", "temp", "disk"]`. |
-| `bar.batStyle` | `string` | `"classic"` | Battery module visual style: `"classic"`, `"minimal"`, or `"text"`. |
+| `bar.batStyle` | `string` | `"classic"` | Battery module visual style: `"classic"`, `"minimal"`, `"text"`, or `"button"`. |
 | `bar.batShowPercent` | `boolean` | `true` | Displays numeric percentage charge level. |
 | `bar.batShowIcon` | `boolean` | `true` | Displays battery status glyph. |
 | `bar.wifiStyle` | `string` | `"button"` | Wi-Fi module visual style: `"button"` or `"text"`. |
@@ -137,6 +141,7 @@ The configuration file is located at `~/.config/serpantinum/settings.json` (or `
 | `bar.mediaWidth` | `integer` | `120` | Width of the media text area in pixels (top and bottom bars). |
 | `bar.mediaShowIcon` | `boolean` | `true` | Displays album art or music icon. |
 | `bar.mediaShowControls` | `boolean` | `true` | Displays previous, play and next buttons. |
+| `bar.mediaHideWhenIdle` | `boolean` | `false` | Hides the media module while nothing is playing. |
 
 ### Launcher
 
@@ -202,6 +207,7 @@ The configuration file is located at `~/.config/serpantinum/settings.json` (or `
 | Key | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `idle.enabled` | `boolean` | `true` | Master toggle for the idle power management subsystem. |
+| `idle.lockOnSleep` | `boolean` | `true` | Locks the session before the system suspends for any reason, such as closing the lid. Requires systemd-logind. |
 | `idle.manualInhibit` | `boolean` | `false` | Caffeine mode; suppresses all automated idle timeouts. |
 | `idle.actions.dim` | `object` | `{...}` | Screen dim action (`timeout`: seconds, `enabled`: boolean, `respectInhibitors`: boolean, `mprisInhibit`: boolean, `warningTimeout`: seconds, `beforeCommand`: string, `resumeCommand`: string). |
 | `idle.actions.lock` | `object` | `{...}` | Session lock action (`timeout`: seconds, `enabled`: boolean, `respectInhibitors`: boolean, `mprisInhibit`: boolean, `warningTimeout`: seconds, `warningCommand`: string). |
