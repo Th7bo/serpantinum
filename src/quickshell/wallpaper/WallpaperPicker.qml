@@ -55,12 +55,37 @@ Item {
     property int _lastProxyVersion: -1
 
     property var configSettings: Config.rawSettings
-    property string srcDir: {
+    // Wallpaper root folder; its subfolders become categories (see categoryBar).
+    property string rootDir: {
         let dummy = configSettings;
         return Config.getSetting("wallpaperDir", "") || Config.getSetting("wallpaper_dir", "") || Quickshell.env("WALLPAPER_DIR") || (Quickshell.env("HOME") + "/Pictures/Wallpapers");
     }
+    property string srcDir: rootDir
+    property var categoryDirs: []
+
+    onRootDirChanged: {
+        window.srcDir = window.rootDir;
+        categoryProc.running = true;
+    }
+
+    function selectCategory(dir) {
+        if (dir === window.srcDir) return;
+        window.srcDir = dir;
+    }
+
+    Process {
+        id: categoryProc
+        running: true
+        command: ["sh", "-c", "find -L \"$1\" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -printf '%f\\n' | sort -f", "sh", window.rootDir]
+        stdout: StdioCollector {
+            onStreamFinished: window.categoryDirs = this.text.split("\n").filter(n => n.length > 0)
+        }
+    }
 
     onSrcDirChanged: {
+        // Drop the previous folder's items so syncFromSrcModel rebuilds for the new one.
+        localProxyModel.clear();
+        videoProxyModel.clear();
         window.initialFocusSet = false;
         window.syncFromSrcModel();
         window.triggerIndexer();
@@ -70,8 +95,8 @@ Item {
         target: Config
         function onSettingsLoaded() {
             let dir = Config.getSetting("wallpaperDir", "") || Config.getSetting("wallpaper_dir", "") || Quickshell.env("WALLPAPER_DIR") || (Quickshell.env("HOME") + "/Pictures/Wallpapers");
-            if (dir && dir !== window.srcDir) {
-                window.srcDir = dir;
+            if (dir && dir !== window.rootDir) {
+                window.rootDir = dir;
             }
         }
     }
@@ -617,6 +642,11 @@ Item {
     }
 
     onVisibleChanged: {
+        if (visible) {
+            categoryProc.running = true; // pick up newly added category folders
+            window.syncFromSrcModel();
+            indexerDebounceTimer.restart(); // pick up renamed/changed files
+        }
         if (!visible) {
             window._refreshedForDisplay = false;
             window.isExiting = false;
@@ -821,7 +851,17 @@ Item {
 
         if ((localProxyModel.count > 0 || videoProxyModel.count > 0) &&
             srcModel.count === (localProxyModel.count + videoProxyModel.count)) {
-            return;
+            // Same count is not enough: a rename keeps the count but changes names.
+            let shown = {};
+            for (let j = 0; j < localProxyModel.count; j++) shown[localProxyModel.get(j).fileName] = true;
+            for (let j = 0; j < videoProxyModel.count; j++) shown[videoProxyModel.get(j).fileName] = true;
+            let same = true;
+            for (let j = 0; j < srcModel.count; j++) {
+                if (!shown[String(srcModel.get(j, "fileName"))]) { same = false; break; }
+            }
+            if (same) return;
+            localProxyModel.clear();
+            videoProxyModel.clear();
         }
 
         let localItems = [];
@@ -1857,6 +1897,63 @@ Item {
                         color: "transparent"
                         border.width: 0
                         border.color: "transparent"
+                    }
+                }
+            }
+        }
+    }
+
+    // Category bar: the wallpaper root plus one tab per subfolder (symlinks allowed).
+    Rectangle {
+        id: categoryBar
+        visible: window.categoryDirs.length > 0
+        anchors.top: filterBarBackground.bottom
+        anchors.topMargin: window.s(8)
+        anchors.horizontalCenter: parent.horizontalCenter
+        z: 200
+        opacity: filterBarBackground.opacity
+        height: window.s(40)
+        width: categoryRow.width + window.s(14)
+        radius: ThemeBackend.borderRadius
+        color: Qt.rgba(ThemeBackend.base.r, ThemeBackend.base.g, ThemeBackend.base.b, 0.90)
+        border.color: ThemeBackend.surface0
+        border.width: 1
+
+        Row {
+            id: categoryRow
+            anchors.centerIn: parent
+            spacing: window.s(6)
+
+            Repeater {
+                model: [""].concat(window.categoryDirs)
+                delegate: Rectangle {
+                    required property string modelData
+                    readonly property string dirPath: modelData === "" ? window.rootDir : window.rootDir + "/" + modelData
+                    readonly property bool active: window.srcDir === dirPath
+                    height: window.s(28)
+                    width: catLabel.implicitWidth + window.s(24)
+                    radius: ThemeBackend.borderRadius
+                    color: active ? ThemeBackend.surface2 : (catMouse.containsMouse ? ThemeBackend.surface1 : ThemeBackend.surface0)
+                    border.color: active ? ThemeBackend.text : ThemeBackend.surface1
+                    border.width: active ? window.s(1.5) : 1
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    Text {
+                        id: catLabel
+                        anchors.centerIn: parent
+                        text: modelData === "" ? "Main" : modelData
+                        color: ThemeBackend.text
+                        font.family: ThemeBackend.fontFamily
+                        font.pixelSize: window.s(12)
+                        font.bold: parent.active
+                    }
+
+                    MouseArea {
+                        id: catMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: window.selectCategory(parent.dirPath)
                     }
                 }
             }
