@@ -27,6 +27,8 @@ while [[ "$#" -gt 0 ]]; do
         --mic-dev) MIC_DEVICE="$2"; shift 2 ;;
         --backend) VIDEO_BACKEND="$2"; shift 2 ;;
         --monitor) TARGET_MON="$2"; shift 2 ;;
+        --freeze) FREEZE_SRC="$2"; shift 2 ;;
+        --freeze-mon) FREEZE_MON="$2"; shift 2 ;;
         *) shift ;;
     esac
 done
@@ -90,6 +92,8 @@ if [ -f "$CACHE_DIR/rec_pid" ]; then
         kill -9 "$REC_PID" 2>/dev/null
         
         if [ -f "$FINAL_FILE" ]; then
+            # Put the recording on the clipboard as a file, so it pastes into file managers/chats.
+            wl-copy -t text/uri-list "file://$FINAL_FILE" &>/dev/null
             (
                 VIDEO_THUMB="$QS_RUN_SCREENSHOT/thumb_$$.png"
                 if command -v ffmpeg &> /dev/null; then
@@ -386,7 +390,27 @@ if [ "$FULL_MODE" = true ] || [ -n "$GEOMETRY" ]; then
     fi
 
     TMP_SCREENSHOT="/tmp/instant_snap_$$.png"
-    if [ -n "$GEOMETRY" ]; then
+    # Crop the frame frozen when the overlay opened, so the shot shows exactly what was on
+    # screen at keypress (tooltips/hover states vanish once the overlay closes).
+    if [ -n "$GEOMETRY" ] && [ -f "$FREEZE_SRC" ] && [ -n "$FREEZE_MON" ] &&
+        niri msg -j outputs 2>/dev/null | python3 -c '
+import json, sys
+from PIL import Image
+src, mon, geom, out = sys.argv[1:5]
+lo = json.load(sys.stdin)[mon]["logical"]
+pos, size = geom.split(" ")
+x, y = map(float, pos.split(","))
+w, h = map(float, size.split("x"))
+img = Image.open(src)
+sx = img.width / lo["width"]
+sy = img.height / lo["height"]
+box = (round((x - lo["x"]) * sx), round((y - lo["y"]) * sy), round((x - lo["x"] + w) * sx), round((y - lo["y"] + h) * sy))
+if box[0] < 0 or box[1] < 0 or box[2] > img.width or box[3] > img.height or box[2] <= box[0] or box[3] <= box[1]:
+    sys.exit(1)
+img.crop(box).save(out)
+' "$FREEZE_SRC" "$FREEZE_MON" "$GEOMETRY" "$TMP_SCREENSHOT" 2>/dev/null; then
+        :
+    elif [ -n "$GEOMETRY" ]; then
         grim -l 0 -g "$GEOMETRY" "$TMP_SCREENSHOT"
     elif [ -n "$TARGET_MON" ]; then
         grim -o "$TARGET_MON" -l 0 "$TMP_SCREENSHOT" 2>/dev/null || grim -l 0 "$TMP_SCREENSHOT"

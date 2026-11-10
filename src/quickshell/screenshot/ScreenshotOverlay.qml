@@ -60,6 +60,7 @@ PanelWindow {
     property bool isLoading: false
     property bool animateChanges: false
     property string freezeImg: ""
+    property string keptFreeze: ""
     property bool isInitialized: false
     property bool isRefreezing: false
     property string videoBackend: "gpu-screen-recorder"
@@ -98,7 +99,8 @@ PanelWindow {
             root.grabKeyboardFocus();
             Qt.callLater(root.grabKeyboardFocus);
         } else {
-            if (root.freezeImg !== "") Quickshell.execDetached(["bash", "-c", "rm -f " + root.freezeImg]);
+            // keptFreeze is handed to screenshot.sh, which crops and deletes it
+            if (root.freezeImg !== "" && root.freezeImg !== root.keptFreeze) Quickshell.execDetached(["bash", "-c", "rm -f " + root.freezeImg]);
         }
     }
 
@@ -261,7 +263,7 @@ PanelWindow {
         refreezeProcess.running = false;
         root.isRefreezing = false;
         root.animateChanges = false;
-        if (root.freezeImg !== "") Quickshell.execDetached(["bash", "-c", "rm -f " + root.freezeImg]);
+        if (root.freezeImg !== "" && root.freezeImg !== root.keptFreeze) Quickshell.execDetached(["bash", "-c", "rm -f " + root.freezeImg]);
         root.freezeImg = "";
         root.isActive = false;
         root.showQrPopup = false;
@@ -1581,6 +1583,11 @@ PanelWindow {
             if (root.micDevice !== "") cmd += ` --mic-dev "${root.micDevice}"`;
         }
         if (openEditor) cmd += " --edit";
+        if (!isRecord && root.freezeImg !== "" && root.screen && root.screen.name) {
+            root.keptFreeze = root.freezeImg;
+            cmd += ` --freeze "${root.freezeImg}" --freeze-mon "${root.screen.name}"`;
+            cmd += `; rm -f "${root.freezeImg}"`;
+        }
 
         captureTimer.pendingCmd = cmd;
         root.animateChanges = false;
