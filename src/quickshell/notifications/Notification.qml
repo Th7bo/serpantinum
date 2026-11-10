@@ -212,6 +212,7 @@ Rectangle {
         id: cardHover
         anchors.fill: parent
         hoverEnabled: true
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
         cursorShape: Qt.PointingHandCursor
         property real startRootX: 0
         property real startRootY: 0
@@ -225,6 +226,7 @@ Rectangle {
         }
 
         onPressed: (mouse) => {
+            if (mouse.button === Qt.RightButton) return;
             let r = getTrackingRoot();
             let pt = mapToItem(r, mouse.x, mouse.y);
             startRootX = pt.x;
@@ -236,7 +238,7 @@ Rectangle {
         }
 
         onPositionChanged: (mouse) => {
-            if (!pressed) return;
+            if (!pressed || pressedButtons !== Qt.LeftButton) return;
             let r = getTrackingRoot();
             let pt = mapToItem(r, mouse.x, mouse.y);
             let dx = pt.x - startRootX;
@@ -264,6 +266,14 @@ Rectangle {
         }
 
         onReleased: (mouse) => {
+            if (mouse.button === Qt.RightButton) {
+                let cfg = Config.getSetting("notifications", {});
+                if (!cfg || cfg.rightClickClose !== false) {
+                    typeRoot.isDismissing = true;
+                    typeRoot.doClose();
+                }
+                return;
+            }
             cardHover.preventStealing = false;
             if (draggingH) {
                 let threshold = typeRoot.width * 0.18;
@@ -316,6 +326,8 @@ Rectangle {
                             mainAction.invoke();
                         }
                     }
+                    // Jump to the sender's window (any workspace) on niri
+                    if (n) Quickshell.execDetached(["python3", Caching.serpantinumDir + "/scripts/niri_focus_app.py", n.desktopEntry || "", n.appName || ""]);
                 }
             }
         }
