@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import "../../../reusables"
 import "../../../"
 
@@ -52,6 +53,72 @@ Item {
             Behavior on opacity { NumberAnimation { duration: 450; easing.type: Easing.OutCubic } }
 
             onClicked: Quickshell.execDetached(["bash", "-c", Caching.serpantinumDir + "/scripts/qs_manager.sh toggle guide"])
+        }
+
+        IconButton {
+            id: keybindsButton
+            height: leftLayout.pillHeight
+            width: helpButton.width
+            iconOffsetX: 0
+
+            cornerRadius: helpButton.cornerRadius
+            buttonIcon: "󰌌"
+            iconFontSize: helpButton.iconFontSize
+            accentColor: helpButton.accentColor
+            bgOpacity: root.barOpacity
+            textColor: isHoveredOrHighlighted ? ThemeBackend.text : (root.isCompact ? ThemeBackend.subtext0 : ThemeBackend.overlay2)
+
+            opacity: helpButton.opacity
+
+            onClicked: Quickshell.execDetached(["niri", "msg", "action", "show-hotkey-overlay"])
+        }
+
+        // Screen recording toggle: opens the screenshot overlay in video mode,
+        // or stops the running recording (screenshot.sh stops it when called again).
+        IconButton {
+            id: recordButton
+            property bool recording: false
+            readonly property string recDir: Caching.getCacheDir("recording")
+            readonly property string shotDir: Caching.getCacheDir("screenshot")
+
+            height: leftLayout.pillHeight
+            width: helpButton.width
+            iconOffsetX: 0
+
+            cornerRadius: helpButton.cornerRadius
+            buttonIcon: recording ? "󰓛" : "󰑊"
+            iconFontSize: helpButton.iconFontSize
+            accentColor: helpButton.accentColor
+            bgOpacity: root.barOpacity
+            textColor: recording ? ThemeBackend.red : (isHoveredOrHighlighted ? ThemeBackend.text : (root.isCompact ? ThemeBackend.subtext0 : ThemeBackend.overlay2))
+
+            opacity: helpButton.opacity
+
+            onClicked: {
+                let script = Caching.serpantinumDir + "/scripts/screenshot.sh";
+                if (recording)
+                    Quickshell.execDetached(["bash", script]);
+                else
+                    Quickshell.execDetached(["bash", "-c", "mkdir -p \"$1\" && echo true > \"$1/video_mode\" && exec bash \"$2\"", "rec", shotDir, script]);
+                recPoll.restart();
+            }
+
+            Process {
+                id: recCheck
+                command: ["bash", "-c", "p=$(cat \"$1/rec_pid\" 2>/dev/null) && [ -n \"$p\" ] && kill -0 \"$p\" 2>/dev/null && echo 1 || echo 0", "chk", recordButton.recDir]
+                stdout: StdioCollector {
+                    onStreamFinished: recordButton.recording = text.trim() === "1"
+                }
+            }
+
+            Timer {
+                id: recPoll
+                interval: 1500
+                repeat: true
+                running: root.showLayout
+                triggeredOnStart: true
+                onTriggered: if (!recCheck.running) recCheck.running = true
+            }
         }
     }
 }
