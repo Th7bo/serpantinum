@@ -101,6 +101,10 @@
         "title": "Animatie bij leeg meldingencentrum",
         "desc": "Toon de slapende kat-animatie in het meldingencentrum wanneer dit leeg is"
       },
+      "right_click_close": {
+        "title": "Sluiten met rechtsklik",
+        "desc": "Sluit een melding met een rechtsklik"
+      },
       "test": "Testmelding",
       "test_desc": "Dit is een testmelding"
     },

@@ -102,6 +102,10 @@
         "title": "Animation für leere Benachrichtigungen",
         "desc": "Zeigt die schlafende Katze im Benachrichtigungszentrum an, wenn keine vorhanden sind"
       },
+      "right_click_close": {
+        "title": "Mit Rechtsklick schließen",
+        "desc": "Benachrichtigung per Rechtsklick schließen"
+      },
       "test": "Benachrichtigung testen",
       "test_desc": "Dies ist eine Testbenachrichtigung"
     },

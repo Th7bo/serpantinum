@@ -783,6 +783,10 @@
         "title": "Animacja pustego centrum",
         "desc": "Wyświetlaj grafikę śpiącego kota w centrum powiadomień, gdy jest puste"
       },
+      "right_click_close": {
+        "title": "Zamykaj prawym przyciskiem",
+        "desc": "Zamykaj powiadomienie prawym przyciskiem myszy"
+      },
       "test": "Powiadomienie testowe",
       "test_desc": "To jest powiadomienie testowe"
     },

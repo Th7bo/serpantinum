@@ -101,6 +101,10 @@
         "title": "Hoạt ảnh trung tâm trống",
         "desc": "Hiển thị hình chú mèo đang ngủ trong trung tâm thông báo khi không có thông báo"
       },
+      "right_click_close": {
+        "title": "Đóng bằng chuột phải",
+        "desc": "Đóng thông báo bằng cách nhấp chuột phải"
+      },
       "test": "Thử nghiệm thông báo",
       "test_desc": "Đây là thông báo thử nghiệm"
     },

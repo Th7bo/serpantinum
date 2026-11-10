@@ -102,6 +102,10 @@
         "title": "Animación de centro vacío",
         "desc": "Mostrar el gráfico del gato durmiendo en el centro de notificaciones cuando esté vacío"
       },
+      "right_click_close": {
+        "title": "Cerrar con clic derecho",
+        "desc": "Descartar una notificación con clic derecho"
+      },
       "test": "Probar notificación",
       "test_desc": "Esta es una notificación de prueba"
     },

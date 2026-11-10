@@ -101,6 +101,10 @@
         "title": "Animação de central vazia",
         "desc": "Exibe o gato dormindo na central quando vazia"
       },
+      "right_click_close": {
+        "title": "Fechar com clique direito",
+        "desc": "Dispensar uma notificação com o clique direito"
+      },
       "test": "Testar notificação",
       "test_desc": "Esta é uma notificação de teste"
     },

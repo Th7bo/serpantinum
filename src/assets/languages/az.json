@@ -100,6 +100,10 @@
       "empty_graphic": {
         "title": "Bildiriş olmadıqda göstərilən animasiya",
         "desc": "Bildiriş mərkəzi boş olduqda yatan pişik təsvirini göstər"
+      },
+      "right_click_close": {
+        "title": "Sağ klikləmə ilə bağla",
+        "desc": "Bildirişi sağ klikləməklə bağla"
       }
     },
     "idle": {

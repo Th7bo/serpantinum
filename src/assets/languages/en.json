@@ -101,6 +101,10 @@
         "title": "Empty center animation",
         "desc": "Display the sleeping cat graphic in the notification center when empty"
       },
+      "right_click_close": {
+        "title": "Close with right click",
+        "desc": "Dismiss a notification by right-clicking it"
+      },
       "test": "Test notification",
       "test_desc": "This is a test notification"
     },
@@ -864,7 +868,7 @@
     "battery": {
       "app_name": "System",
       "full_title": "Battery full",
-      "full_body": "Battery is fully charged (100%).",
+      "full_body": "Battery is fully charged.",
       "low_title": "Battery low",
       "low_body": "Battery level is at {pct}%. Please connect your charger.",
       "critical_title": "Battery critical",
