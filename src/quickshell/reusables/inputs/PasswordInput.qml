@@ -281,7 +281,7 @@ FocusScope {
         let minLen = Math.min(str.length, charModel.count);
         let matchLen = 0;
 
-        while (matchLen < minLen && str[matchLen] === charModel.get(matchLen).char) {
+        while (matchLen < minLen && str[matchLen] === charModel.get(matchLen).glyph) {
             matchLen++;
         }
 
@@ -290,7 +290,7 @@ FocusScope {
         }
 
         for (let i = matchLen; i < str.length; i++) {
-            charModel.append({ char: str[i] });
+            charModel.append({ glyph: str[i] });
         }
         updateScroll();
     }
@@ -815,7 +815,7 @@ FocusScope {
                 delegate: Item {
                     id: charSlot
                     required property int index
-                    required property string char
+                    required property string glyph
 
                     property real baseWidth: root.charSlotWidth > 0
                         ? root.charSlotWidth
@@ -873,7 +873,7 @@ FocusScope {
                     Text {
                         id: charText
                         anchors.centerIn: parent
-                        text: charSlot.char
+                        text: charSlot.glyph
                         color: root.textColor
 
                         font.family: root.fontFamily
