@@ -117,18 +117,20 @@ Item {
             root.initialized = true;
             if (!root.stateLoaded) {
                 root.lastPercentage = pct;
-                if (pct >= 100) {
+                if (pct >= 100 || state === UPowerDeviceState.FullyCharged) {
                     root.notifiedFull = true;
                 }
                 root.saveState();
             } else {
-                if (pct >= 100 && (root.lastPercentage >= 100 || root.lastPercentage === -1)) {
+                if (pct >= 100 || state === UPowerDeviceState.FullyCharged) {
                     root.notifiedFull = true;
                 }
             }
         }
 
-        if (pct < 100) {
+        // Re-arm the "full" notification only after unplugging: HP firmware stops charging
+        // around 97% and UPower then reports FullyCharged, so "pct < 100" re-armed it forever.
+        if (!charging) {
             root.notifiedFull = false;
         }
 
@@ -138,7 +140,7 @@ Item {
                 root.notifiedCritical = false;
             }
 
-            if ((pct >= 100 || state === UPowerDeviceState.FullyCharged) && !root.notifiedFull && root.lastPercentage < 100) {
+            if ((pct >= 100 || state === UPowerDeviceState.FullyCharged) && !root.notifiedFull) {
                 let title = I18n.t("sysnotif.battery.full_title");
                 let body = I18n.t("sysnotif.battery.full_body");
                 if (title === "sysnotif.battery.full_title" || body === "sysnotif.battery.full_body") return;
