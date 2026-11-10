@@ -510,6 +510,7 @@ PanelWindow {
     }
 
     onIsVisibleChanged: {
+        if (isVisible) IconMap.refresh();
         if (isVisible) {
             tabSwitch.currentIndex = launcherWindow.currentTabIndex;
             restartItemsIntro();
@@ -1707,6 +1708,8 @@ PanelWindow {
                                                     if (ic.startsWith("/")) return "file://" + ic;
 
                                                     let baseName = ic.replace(/\.(png|svg|xpm|ico)$/i, "");
+                                                    let mapped = IconMap.map[ic] || IconMap.map[baseName];  // image://icon renders blank here
+                                                    if (mapped) return "file://" + mapped;
                                                     if (typeof Quickshell !== "undefined" && typeof Quickshell.iconPath === "function") {
                                                         let resolved = Quickshell.iconPath(ic) || Quickshell.iconPath(baseName);
                                                         if (resolved && resolved.length > 0) {

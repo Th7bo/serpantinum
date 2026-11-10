@@ -1938,7 +1938,7 @@ Variants {
                                                         let ic = model.icon || "";
                                                         if (!ic) return "";
                                                         if (ic.startsWith("file://") || ic.startsWith("image://") || ic.startsWith("http://") || ic.startsWith("https://")) return ic;
-                                                        return ic.startsWith("/") ? "file://" + ic : "image://icon/" + ic;
+                                                        return IconMap.resolve(ic);
                                                     }
 
                                                     onStatusChanged: {
@@ -2394,7 +2394,7 @@ Variants {
                                                         let ic = model.icon || "";
                                                         if (!ic) return "";
                                                         if (ic.startsWith("file://") || ic.startsWith("image://") || ic.startsWith("http://") || ic.startsWith("https://")) return ic;
-                                                        return ic.startsWith("/") ? "file://" + ic : "image://icon/" + ic;
+                                                        return IconMap.resolve(ic);
                                                     }
                                                     onStatusChanged: {
                                                         if (status === Image.Error) failedLoad = true;
@@ -2804,7 +2804,7 @@ Variants {
                                                         let ic = pickerDelegate.resolvedItem.icon || "";
                                                         if (!ic) return "";
                                                         if (ic.startsWith("file://") || ic.startsWith("image://") || ic.startsWith("http://") || ic.startsWith("https://")) return ic;
-                                                        return ic.startsWith("/") ? "file://" + ic : "image://icon/" + ic;
+                                                        return IconMap.resolve(ic);
                                                     }
 
                                                     onStatusChanged: {
