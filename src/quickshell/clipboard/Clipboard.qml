@@ -1204,7 +1204,7 @@ PanelWindow {
                                     if (textMeasure.paintedHeight > clipboardWindow.s(18)) return true;
                                     return false;
                                 }
-                                readonly property real baseH: clipboardWindow.s(52)
+                                readonly property real baseH: isImage ? clipboardWindow.s(110) : clipboardWindow.s(52)
                                 readonly property real expandedH: isImage ? clipboardWindow.s(250) : clipboardWindow.s(172)
                                 height: baseH + (expandedH - baseH) * clipDelegateWrapper.itemExpandProgress
 
