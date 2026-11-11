@@ -118,13 +118,13 @@ PanelWindow {
     SequentialAnimation {
         id: itemsIntroSequence
         running: false
-        PauseAnimation { duration: 60 }
+        PauseAnimation { duration: 0 }
         NumberAnimation {
             target: launcherWindow
             property: "introItems"
             from: 0.0
             to: 1.0
-            duration: 520
+            duration: 260
             easing.type: Easing.Linear
         }
     }
@@ -1196,7 +1196,7 @@ PanelWindow {
         property real animProgress: launcherWindow.isVisible ? 1.0 : 0.0
         Behavior on animProgress {
             NumberAnimation {
-                duration: launcherWindow.isVisible ? (launcherWindow.isCentered ? 420 : 340) : (launcherWindow.isCentered ? 200 : 150)
+                duration: launcherWindow.isVisible ? (launcherWindow.isCentered ? 210 : 180) : (launcherWindow.isCentered ? 130 : 110)
                 easing.type: launcherWindow.isVisible ? Easing.OutBack : Easing.InQuad
                 easing.overshoot: launcherWindow.isVisible ? 1.28 : 1.0
             }
