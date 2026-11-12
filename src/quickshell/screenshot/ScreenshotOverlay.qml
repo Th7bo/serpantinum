@@ -181,7 +181,7 @@ PanelWindow {
         root.micDevice = mDev || "";
 
         root.cachedMode = cMode || "false";
-        root.isVideoMode = (root.cachedMode === "true");
+        root.isVideoMode = false;   // th7bo: always open in screenshot mode (Tab/Right switches to record)
         root.videoBackend = (cBackend === "wf-recorder") ? "wf-recorder" : "gpu-screen-recorder";
 
         if (root.isVideoMode) {
